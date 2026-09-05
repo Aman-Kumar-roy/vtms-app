@@ -1,0 +1,17 @@
+# Dependencies and generated directories
+node_modules
+.expo/
+.expo-shared/
+web-build/
+android/
+ios/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db

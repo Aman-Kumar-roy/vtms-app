@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "Vasudha Polymer",
+    "slug": "vtms-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#080d1a",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#080d1a"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vtms.vendorapp",
+      "userInterfaceStyle": "dark",
+      "backgroundColor": "#080d1a"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#080d1a"
+      },
+      "backgroundColor": "#080d1a",
+      "package": "com.vtms.vendorapp"
+    },
+    "plugins": [
+      "expo-sharing"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "a65ade33-5cbe-4920-b28a-380ef1fbfa0b"
+      }
+    }
+  }
+}

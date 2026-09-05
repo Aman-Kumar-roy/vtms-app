@@ -1,0 +1,575 @@
+{
+  "info": {
+    "_postman_id": "c1f73b64-8df6-4b2a-9e12-89df34e6b12a",
+    "name": "Vasudha Polymer VTMS - REST API Collection",
+    "description": "Production Postman Collection for Vasudha Polymer Vendor & Transaction Management System (VTMS). Supports Web Dashboard and React Native Mobile App.\n\nKey Highlights:\n- Official Admin Credentials: admin@vasudhapolymer.com / Admin@123 (and default fallback admin@webkul.com / admin123)\n- Strict Tank Capacities: 500L, 1000L, 2000L ONLY (tank500, tank1000, tank2000)\n- Seller Toggle Logic: requireAdditional flag (ON: GSTIN + Email required; OFF: Only Name required)\n- Server-Generated Official Receipts: RCP-XXXXXXXX vouchers with company credentials & itemized unit breakdown\n- Real-Time Dynamic Financials: Server-computed totalDeliveries, totalPaid, and totalDues.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "sellerId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "transactionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Authentication & Users",
+      "item": [
+        {
+          "name": "Login (Admin / Manager)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.token) {",
+                  "    pm.collectionVariables.set('token', jsonData.data.token);",
+                  "    console.log('JWT Token saved to collection variable:', jsonData.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@vasudhapolymer.com\",\n  \"password\": \"Admin@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Authenticate an administrator or manager and receive a JWT Bearer token. Fallback credential: admin@webkul.com / admin123."
+          }
+        },
+        {
+          "name": "Get Current User Profile (/auth/me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Returns details of the currently authenticated user (ID, email, name, role)."
+          }
+        },
+        {
+          "name": "Get All Users (Admin Only)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "users"]
+            },
+            "description": "List all registered users (Administrators and Operations Managers)."
+          }
+        },
+        {
+          "name": "Create User (Admin Only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Operations Manager\",\n  \"email\": \"manager@vasudhapolymer.com\",\n  \"password\": \"Manager@123\",\n  \"role\": \"manager\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "users"]
+            },
+            "description": "Create a new user with role 'admin' or 'manager'."
+          }
+        },
+        {
+          "name": "Delete User (Admin Only)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "users", "{{userId}}"]
+            },
+            "description": "Delete a user account by MongoDB ObjectId."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Sellers / Vendors",
+      "item": [
+        {
+          "name": "Get All Sellers (Paginated + Server Totals)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sellers?page=1&limit=10&search=",
+              "host": ["{{baseUrl}}"],
+              "path": ["sellers"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (1-indexed)"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Sellers per page"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Search by vendor name, phone, email, or GSTIN"
+                }
+              ]
+            },
+            "description": "Retrieve paginated sellers with dynamically calculated totals (totalDeliveries, totalPaid, totalDues, tank500, tank1000, tank2000)."
+          }
+        },
+        {
+          "name": "Create Seller (Strict Mode: GSTIN + Email Mandatory)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "var seller = jsonData.seller || jsonData.data?.seller || (jsonData.data && jsonData.data._id ? jsonData.data : null);",
+                  "if (seller && seller._id) {",
+                  "    pm.collectionVariables.set('sellerId', seller._id);",
+                  "    console.log('Saved sellerId:', seller._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Apex Polymer Solutions\",\n  \"email\": \"contact@apexpolymer.com\",\n  \"phone\": \"+91 98765 43210\",\n  \"address\": \"Plot 42, Industrial Area, Sector 58, Faridabad\",\n  \"gstNumber\": \"07AAAAA0000A1Z5\",\n  \"requireAdditional\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sellers",
+              "host": ["{{baseUrl}}"],
+              "path": ["sellers"]
+            },
+            "description": "Register a seller with requireAdditional: true (Default). Name, valid Email, and 15-char GSTIN are mandatory."
+          }
+        },
+        {
+          "name": "Create Seller (Quick Mode: Only Name Mandatory)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Quick Local Enterprise\",\n  \"phone\": \"+91 99999 11111\",\n  \"requireAdditional\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sellers",
+              "host": ["{{baseUrl}}"],
+              "path": ["sellers"]
+            },
+            "description": "Register a seller with requireAdditional: false. Only vendor name is mandatory; email, GSTIN, phone, and address are optional."
+          }
+        },
+        {
+          "name": "Get Seller by ID (Ledger Stats & History)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sellers/{{sellerId}}?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["sellers", "{{sellerId}}"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number for transactions"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Transactions per page"
+                }
+              ]
+            },
+            "description": "Fetch a vendor profile, summary ledger balances, and paginated transaction history."
+          }
+        },
+        {
+          "name": "Update Seller (Admin Only)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Apex Polymer Solutions Pvt Ltd\",\n  \"email\": \"info@apexpolymer.com\",\n  \"phone\": \"+91 98765 43210\",\n  \"address\": \"Plot 42-B, Industrial Area, Sector 58, Faridabad\",\n  \"gstNumber\": \"07AAAAA0000A1Z5\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sellers/{{sellerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["sellers", "{{sellerId}}"]
+            },
+            "description": "Update details for an existing seller."
+          }
+        },
+        {
+          "name": "Delete Seller (Admin Only)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sellers/{{sellerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["sellers", "{{sellerId}}"]
+            },
+            "description": "Permanently delete a seller account and clean up associated transaction records."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Transactions & Receipts",
+      "item": [
+        {
+          "name": "Get All Transactions (Paginated + Filtered)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/transactions?page=1&limit=10&type=&sellerId=&search=",
+              "host": ["{{baseUrl}}"],
+              "path": ["transactions"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "type",
+                  "value": "",
+                  "description": "DELIVERY or PAYMENT"
+                },
+                {
+                  "key": "sellerId",
+                  "value": "",
+                  "description": "Filter by Seller ObjectId"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Search note, vendor name, or payment mode"
+                }
+              ]
+            },
+            "description": "List all transactions with populated seller details, sorted by date descending."
+          }
+        },
+        {
+          "name": "Create Delivery Transaction (Strict 500L, 1000L, 2000L)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "var tx = jsonData.transaction || jsonData.data?.transaction || (jsonData.data && jsonData.data._id ? jsonData.data : null);",
+                  "if (tx && tx._id) {",
+                  "    pm.collectionVariables.set('transactionId', tx._id);",
+                  "    console.log('Saved transactionId:', tx._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sellerId\": \"{{sellerId}}\",\n  \"type\": \"DELIVERY\",\n  \"amount\": 38500.50,\n  \"date\": \"2026-09-05T12:00:00.000Z\",\n  \"note\": \"Dispatched standard polymer water storage tanks batch #101\",\n  \"tank500\": 10,\n  \"tank1000\": 5,\n  \"tank2000\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transactions",
+              "host": ["{{baseUrl}}"],
+              "path": ["transactions"]
+            },
+            "description": "Record a DELIVERY transaction with strict tank sizes (tank500, tank1000, tank2000). Returns 201 Created with server-generated official receipt voucher."
+          }
+        },
+        {
+          "name": "Create Payment Transaction",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "var tx = jsonData.transaction || jsonData.data?.transaction || (jsonData.data && jsonData.data._id ? jsonData.data : null);",
+                  "if (tx && tx._id) {",
+                  "    pm.collectionVariables.set('transactionId', tx._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sellerId\": \"{{sellerId}}\",\n  \"type\": \"PAYMENT\",\n  \"amount\": 25000.00,\n  \"date\": \"2026-09-05T14:30:00.000Z\",\n  \"paymentMode\": \"UPI\",\n  \"note\": \"Settlement for batch #101 via corporate UPI\",\n  \"parentId\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transactions",
+              "host": ["{{baseUrl}}"],
+              "path": ["transactions"]
+            },
+            "description": "Record a PAYMENT transaction. Supports optional parentId linking to a specific DELIVERY record. Returns official server receipt."
+          }
+        },
+        {
+          "name": "Get Official Server Receipt Voucher (/receipt)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/transactions/{{transactionId}}/receipt",
+              "host": ["{{baseUrl}}"],
+              "path": ["transactions", "{{transactionId}}", "receipt"]
+            },
+            "description": "Get official server-generated voucher for a transaction. Contains receiptNumber (RCP-XXXXXXXX), date, company credentials from env, vendor info, itemized tanks, and verification signature."
+          }
+        },
+        {
+          "name": "Update Transaction (Admin Only)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 42000.00,\n  \"note\": \"Updated batch dispatch count with 2 extra 500L tanks\",\n  \"tank500\": 12,\n  \"tank1000\": 5,\n  \"tank2000\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transactions/{{transactionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["transactions", "{{transactionId}}"]
+            },
+            "description": "Update monetary amount, notes, or unit counts of an existing transaction."
+          }
+        },
+        {
+          "name": "Delete Transaction (Admin Only)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/transactions/{{transactionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["transactions", "{{transactionId}}"]
+            },
+            "description": "Permanently delete a transaction record."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Reports & Analytics",
+      "item": [
+        {
+          "name": "Get Financial Summary Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "summary"]
+            },
+            "description": "Returns overall platform financials: totalBilledSales, totalClearedPayments, totalPendingReceivables, tank unit totals (500L, 1000L, 2000L), and top vendors by revenue."
+          }
+        },
+        {
+          "name": "Get Tank Summary Report (500L, 1000L, 2000L)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports/tank-summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "tank-summary"]
+            },
+            "description": "Returns aggregated counts of tanks sold/delivered strictly categorized into 500L, 1000L, and 2000L sizes."
+          }
+        }
+      ]
+    }
+  ]
+}
