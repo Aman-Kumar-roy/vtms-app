@@ -6,7 +6,9 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "ios": "expo start --ios"
+    "ios": "expo start --ios",
+    "build:apk": "eas build -p android --profile preview",
+    "build:apk:prod": "eas build -p android --profile production"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.15",
