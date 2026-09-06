@@ -16,28 +16,19 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.vtms.vendorapp",
       "userInterfaceStyle": "dark",
-      "backgroundColor": "#080d1a",
-      "splash": {
-        "image": "./assets/splash.png",
-        "resizeMode": "contain",
-        "backgroundColor": "#080d1a"
-      }
+      "backgroundColor": "#080d1a"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#080d1a"
       },
-      "splash": {
-        "image": "./assets/splash.png",
-        "resizeMode": "contain",
-        "backgroundColor": "#080d1a"
-      },
       "backgroundColor": "#080d1a",
       "package": "com.vtms.vendorapp"
     },
     "plugins": [
-      "expo-sharing"
+      "expo-sharing",
+      "expo-font"
     ],
     "extra": {
       "eas": {
