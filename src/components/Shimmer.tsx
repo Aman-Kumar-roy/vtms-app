@@ -157,6 +157,19 @@ export const DashboardSkeleton: React.FC = () => {
         </View>
       </View>
 
+      {/* Collection Efficiency Skeleton */}
+      <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle, height: 95 }]}>
+        <View style={styles.rowBetween}>
+          <ShimmerBlock width={140} height={16} borderRadius={4} />
+          <ShimmerBlock width={50} height={20} borderRadius={10} />
+        </View>
+        <ShimmerBlock width="100%" height={8} borderRadius={4} style={{ marginVertical: 10 }} />
+        <View style={styles.rowBetween}>
+          <ShimmerBlock width={100} height={12} borderRadius={4} />
+          <ShimmerBlock width={90} height={12} borderRadius={4} />
+        </View>
+      </View>
+
       {/* Grid Cards Skeleton */}
       <View style={styles.gridRow}>
         <View style={[styles.gridCard, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
@@ -215,22 +228,14 @@ export const ReportsSkeleton: React.FC = () => {
         <ShimmerBlock width={80} height={30} borderRadius={15} />
       </View>
 
-      {/* Financial Summary Card Skeleton */}
-      <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle, height: 140 }]}>
-        <ShimmerBlock width={150} height={18} borderRadius={6} />
-        <View style={[styles.statsRow, { marginTop: 20 }]}>
-          <View style={{ gap: 6 }}>
-            <ShimmerBlock width={70} height={12} borderRadius={4} />
-            <ShimmerBlock width={100} height={20} borderRadius={6} />
-          </View>
-          <View style={{ gap: 6 }}>
-            <ShimmerBlock width={70} height={12} borderRadius={4} />
-            <ShimmerBlock width={100} height={20} borderRadius={6} />
-          </View>
-          <View style={{ gap: 6 }}>
-            <ShimmerBlock width={70} height={12} borderRadius={4} />
-            <ShimmerBlock width={100} height={20} borderRadius={6} />
-          </View>
+      {/* Active Period Banner Skeleton */}
+      <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle, height: 110 }]}>
+        <ShimmerBlock width={160} height={16} borderRadius={6} />
+        <View style={[styles.statsRow, { marginTop: 16 }]}>
+          <ShimmerBlock width="22%" height={42} borderRadius={8} />
+          <ShimmerBlock width="22%" height={42} borderRadius={8} />
+          <ShimmerBlock width="22%" height={42} borderRadius={8} />
+          <ShimmerBlock width="25%" height={42} borderRadius={8} />
         </View>
       </View>
 

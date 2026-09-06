@@ -20,15 +20,19 @@ import { getTransactionsApi } from '../api/transaction';
 import { useTheme } from '../context/ThemeContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { ReceiptCardSkeleton } from '../components/Shimmer';
+import { queryClient, QUERY_KEYS } from '../query/queryClient';
 
 type TypeFilter = 'ALL' | 'DELIVERY' | 'PAYMENT';
 
-export const ReceiptsScreen = ({ navigation }: any) => {
+export const ReceiptsScreen = ({ navigation, isEmbedded }: any) => {
   const { colors } = useTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [totalCount, setTotalCount] = useState<number>(0);
-  const [loading, setLoading] = useState<boolean>(true);
+
+  // Read initial cache if available
+  const initialCached = queryClient.getQueryData<any>(QUERY_KEYS.receipts({ page: 1, limit: 15 }));
+  const [transactions, setTransactions] = useState<Transaction[]>(initialCached?.transactions || []);
+  const [totalCount, setTotalCount] = useState<number>(initialCached?.pagination?.total || 0);
+  const [loading, setLoading] = useState<boolean>(!initialCached);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [page, setPage] = useState<number>(1);
@@ -39,8 +43,8 @@ export const ReceiptsScreen = ({ navigation }: any) => {
   const [error, setError] = useState<string | null>(null);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const isInitialMount = useRef(true);
-  const transactionsRef = useRef<Transaction[]>([]);
+  const lastFetchTimeRef = useRef<number>(initialCached ? Date.now() : 0);
+  const transactionsRef = useRef<Transaction[]>(transactions);
   transactionsRef.current = transactions;
 
   // Debounce search input
@@ -52,8 +56,20 @@ export const ReceiptsScreen = ({ navigation }: any) => {
   }, [search]);
 
   const fetchReceipts = useCallback(
-    async (targetPage = 1, isRefresh = false) => {
+    async (
+      targetPage = 1,
+      isRefresh = false,
+      activeFilter: TypeFilter = typeFilter,
+      activeSearch: string = debouncedSearch
+    ) => {
       setError(null);
+      const queryKey = QUERY_KEYS.receipts({
+        page: targetPage,
+        limit: 15,
+        search: activeSearch.trim() || undefined,
+        type: activeFilter === 'ALL' ? undefined : activeFilter,
+      });
+
       if (targetPage > 1) {
         setLoadingMore(true);
       } else if (isRefresh) {
@@ -66,13 +82,18 @@ export const ReceiptsScreen = ({ navigation }: any) => {
         const res = await getTransactionsApi({
           page: targetPage,
           limit: 15,
-          search: debouncedSearch.trim() || undefined,
-          type: typeFilter === 'ALL' ? undefined : typeFilter,
+          search: activeSearch.trim() || undefined,
+          type: activeFilter === 'ALL' ? undefined : activeFilter,
         });
 
         const incoming = res.transactions || [];
         if (res.pagination?.total !== undefined) {
           setTotalCount(res.pagination.total);
+        }
+
+        if (targetPage === 1) {
+          queryClient.setQueryData(queryKey, res);
+          lastFetchTimeRef.current = Date.now();
         }
 
         setTransactions((prev) => {
@@ -101,21 +122,45 @@ export const ReceiptsScreen = ({ navigation }: any) => {
     [debouncedSearch, typeFilter]
   );
 
-  // Trigger search / filter changes from page 1
-  useEffect(() => {
-    if (!isInitialMount.current) {
-      fetchReceipts(1);
+  const handleTypeFilter = (newType: TypeFilter) => {
+    if (newType === typeFilter) return;
+    setTypeFilter(newType);
+    const queryKey = QUERY_KEYS.receipts({
+      page: 1,
+      limit: 15,
+      search: debouncedSearch.trim() || undefined,
+      type: newType === 'ALL' ? undefined : newType,
+    });
+    const cached = queryClient.getQueryData<any>(queryKey);
+    if (cached?.transactions) {
+      setTransactions(cached.transactions);
+      if (cached.pagination?.total !== undefined) {
+        setTotalCount(cached.pagination.total);
+      }
+      setLoading(false);
+    } else {
+      setTransactions([]);
+      setLoading(true);
     }
-  }, [debouncedSearch, typeFilter, fetchReceipts]);
+    fetchReceipts(1, false, newType, debouncedSearch);
+  };
+
+  // Trigger search changes from page 1
+  useEffect(() => {
+    fetchReceipts(1, false, typeFilter, debouncedSearch);
+  }, [debouncedSearch]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchReceipts(1);
-    }, [fetchReceipts])
+      const isStale = Date.now() - lastFetchTimeRef.current > 1000 * 60 * 2;
+      if (transactionsRef.current.length === 0 || isStale) {
+        fetchReceipts(1, false, typeFilter, debouncedSearch);
+      }
+    }, [fetchReceipts, typeFilter, debouncedSearch])
   );
 
   const onRefresh = () => {
-    fetchReceipts(1, true);
+    fetchReceipts(1, true, typeFilter, debouncedSearch);
   };
 
   const handleLoadMore = () => {
@@ -140,19 +185,29 @@ export const ReceiptsScreen = ({ navigation }: any) => {
   };
 
   return (
-    <AnimatedScreenWrapper style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
-      <NavbarHeader
-        currentScreenTitle="Receipts & Vouchers"
-        isRootScreen={true}
-        onOpenDrawer={() => setDrawerOpen(true)}
-        navigation={navigation}
-      />
-      <DrawerSidebar
-        visible={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        navigation={navigation}
-        activeScreen="Receipts"
-      />
+    <AnimatedScreenWrapper
+      style={[
+        styles.container,
+        { backgroundColor: colors.bgPrimary },
+        isEmbedded && { paddingHorizontal: 0, paddingTop: 0 },
+      ]}
+    >
+      {!isEmbedded && (
+        <NavbarHeader
+          currentScreenTitle="Receipts & Vouchers"
+          isRootScreen={true}
+          onOpenDrawer={() => setDrawerOpen(true)}
+          navigation={navigation}
+        />
+      )}
+      {!isEmbedded && (
+        <DrawerSidebar
+          visible={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          navigation={navigation}
+          activeScreen="Receipts"
+        />
+      )}
 
       {/* Page Header Aligned with Web */}
       <View style={styles.headerContainer}>
@@ -197,7 +252,7 @@ export const ReceiptsScreen = ({ navigation }: any) => {
       <View style={[styles.tabsContainer, { backgroundColor: 'rgba(15, 23, 42, 0.8)', borderColor: colors.borderSubtle }]}>
         <TouchableOpacity
           style={[styles.tabItem, typeFilter === 'ALL' && styles.tabItemActiveAll]}
-          onPress={() => setTypeFilter('ALL')}
+          onPress={() => handleTypeFilter('ALL')}
           activeOpacity={0.8}
         >
           <Text style={[styles.tabText, typeFilter === 'ALL' ? styles.tabTextActive : { color: colors.textMuted }]}>
@@ -207,7 +262,7 @@ export const ReceiptsScreen = ({ navigation }: any) => {
 
         <TouchableOpacity
           style={[styles.tabItem, typeFilter === 'DELIVERY' && styles.tabItemActiveDelivery]}
-          onPress={() => setTypeFilter('DELIVERY')}
+          onPress={() => handleTypeFilter('DELIVERY')}
           activeOpacity={0.8}
         >
           <Ionicons
@@ -223,7 +278,7 @@ export const ReceiptsScreen = ({ navigation }: any) => {
 
         <TouchableOpacity
           style={[styles.tabItem, typeFilter === 'PAYMENT' && styles.tabItemActivePayment]}
-          onPress={() => setTypeFilter('PAYMENT')}
+          onPress={() => handleTypeFilter('PAYMENT')}
           activeOpacity={0.8}
         >
           <Ionicons
@@ -416,7 +471,7 @@ export const ReceiptsScreen = ({ navigation }: any) => {
       )}
 
       {/* Native App Bottom Tab Bar */}
-      <BottomTabBar activeScreen="Receipts" navigation={navigation} />
+      {!isEmbedded && <BottomTabBar activeScreen="Receipts" navigation={navigation} />}
     </AnimatedScreenWrapper>
   );
 };

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Transaction, Seller, ServerReceipt } from '../types';
-import { getTransactionReceiptApi } from '../api/transaction';
+import { getTransactionReceiptApi, downloadReceiptPdfApi } from '../api/transaction';
 import { useTheme } from '../context/ThemeContext';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -153,356 +153,40 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   const paymentModeVal = (receipt?.transaction?.paymentMode || transaction?.paymentMode || 'UPI').toUpperCase();
   const noteVal = receipt?.transaction?.note || transaction?.note || '';
 
-  const buildHtmlReceipt = () => {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Receipt-${receiptNo}</title>
-        <style>
-          * { box-sizing: border-box; margin: 0; padding: 0; }
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background: #f8fafc;
-            color: #0f172a;
-            padding: 24px;
-          }
-          .receipt-shell {
-            max-width: 580px;
-            margin: 0 auto;
-            background: #ffffff;
-            border-radius: 16px;
-            border: 1px solid #e2e8f0;
-            overflow: hidden;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
-          }
-          .header-band {
-            background: #0f172a;
-            color: #ffffff;
-            padding: 20px 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-          }
-          .company-col {
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-          }
-          .logo-box {
-            width: 44px;
-            height: 44px;
-            border-radius: 10px;
-            background: #ffffff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            font-weight: 900;
-            color: #0f172a;
-            font-size: 16px;
-          }
-          .company-name {
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            color: #38bdf8;
-            font-weight: 900;
-          }
-          .company-address {
-            font-size: 12px;
-            font-weight: 700;
-            color: #cbd5e1;
-            margin-top: 2px;
-            line-height: 1.3;
-          }
-          .company-meta {
-            font-size: 10px;
-            color: #94a3b8;
-            margin-top: 4px;
-          }
-          .voucher-col {
-            text-align: right;
-          }
-          .voucher-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 9999px;
-            font-size: 11px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            background: ${isDelivery ? '#4f46e5' : '#059669'};
-            color: #ffffff;
-          }
-          .voucher-no {
-            font-family: monospace;
-            font-size: 13px;
-            font-weight: 800;
-            color: #cbd5e1;
-            margin-top: 6px;
-          }
-          .body-content {
-            padding: 20px 24px;
-          }
-          .vendor-box {
-            background: #f8fafc;
-            border-radius: 12px;
-            padding: 16px;
-            border: 1px solid #e2e8f0;
-            margin-bottom: 16px;
-          }
-          .vendor-top-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 6px;
-          }
-          .vendor-label {
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #64748b;
-            font-weight: 800;
-          }
-          .gst-pill {
-            font-family: monospace;
-            font-size: 10px;
-            font-weight: 800;
-            background: #e2e8f0;
-            color: #1e293b;
-            padding: 2px 8px;
-            border-radius: 4px;
-          }
-          .vendor-name {
-            font-size: 15px;
-            font-weight: 900;
-            color: #0f172a;
-          }
-          .vendor-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4px;
-            margin-top: 6px;
-            font-size: 11px;
-            color: #475569;
-          }
-          .vendor-addr {
-            grid-column: span 2;
-            margin-top: 2px;
-          }
-          .detail-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 0;
-            border-bottom: 1px solid #f1f5f9;
-            font-size: 12px;
-          }
-          .detail-label {
-            color: #64748b;
-            font-weight: 500;
-          }
-          .detail-val {
-            color: #0f172a;
-            font-weight: 700;
-          }
-          .type-pill {
-            font-size: 10px;
-            font-weight: 800;
-            padding: 3px 10px;
-            border-radius: 9999px;
-            background: ${isDelivery ? '#eef2ff' : '#ecfdf5'};
-            color: ${isDelivery ? '#3730a3' : '#065f46'};
-            border: 1px solid ${isDelivery ? '#c7d2fe' : '#a7f3d0'};
-          }
-          .mode-pill {
-            font-size: 10px;
-            font-weight: 800;
-            padding: 2px 8px;
-            border-radius: 4px;
-            background: #ecfdf5;
-            color: #065f46;
-            border: 1px solid #a7f3d0;
-            text-transform: uppercase;
-          }
-          .amount-card {
-            margin-top: 16px;
-            border-radius: 12px;
-            padding: 16px;
-            text-align: center;
-            background: ${isDelivery ? '#eef2ff' : '#ecfdf5'};
-            border: 1px solid ${isDelivery ? '#c7d2fe' : '#a7f3d0'};
-          }
-          .amount-label {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 800;
-            color: #64748b;
-            margin-bottom: 4px;
-          }
-          .amount-val {
-            font-size: 28px;
-            font-weight: 900;
-            color: ${isDelivery ? '#312e81' : '#065f46'};
-          }
-          .signatures {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
-            margin-top: 24px;
-            padding-top: 16px;
-            border-top: 1px solid #e2e8f0;
-          }
-          .sig-box {
-            text-align: center;
-          }
-          .sig-line {
-            height: 32px;
-            border-bottom: 1px dashed #cbd5e1;
-          }
-          .sig-caption {
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            color: #64748b;
-            margin-top: 4px;
-          }
-          .footer-note {
-            text-align: center;
-            margin-top: 16px;
-            padding-top: 12px;
-            border-top: 1px dashed #e2e8f0;
-            font-size: 10px;
-            color: #64748b;
-          }
-          .footer-thanks {
-            font-weight: 800;
-            color: #0f172a;
-            margin-top: 4px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="receipt-shell">
-          <div class="header-band">
-            <div class="company-col">
-              <div class="logo-box">VP</div>
-              <div>
-                <p class="company-name">${COMPANY_NAME}</p>
-                <p class="company-address">${COMPANY_ADDRESS}</p>
-                <p class="company-meta">Phone: ${COMPANY_PHONE} &bull; GSTIN: <b>${COMPANY_GST}</b></p>
-              </div>
-            </div>
-            <div class="voucher-col">
-              <span class="voucher-badge">${isDelivery ? 'DELIVERY RECEIPT' : 'PAYMENT RECEIPT'}</span>
-              <p class="voucher-no">${receiptNo}</p>
-            </div>
-          </div>
-
-          <div class="body-content">
-            <div class="vendor-box">
-              <div class="vendor-top-row">
-                <span class="vendor-label">Seller / Vendor Details</span>
-                ${vendorGst ? `<span class="gst-pill">GSTIN: ${vendorGst}</span>` : ''}
-              </div>
-              <p class="vendor-name">${vendorName}</p>
-              <div class="vendor-grid">
-                ${vendorPhone ? `<div>Phone: <b>${vendorPhone}</b></div>` : ''}
-                ${vendorEmail ? `<div>${vendorEmail}</div>` : ''}
-                ${vendorAddress ? `<div class="vendor-addr">${vendorAddress}</div>` : ''}
-              </div>
-            </div>
-
-            <div class="detail-row">
-              <span class="detail-label">Transaction ID</span>
-              <span class="detail-val" style="font-family: monospace;">${txIdDisplay || 'N/A'}</span>
-            </div>
-
-            <div class="detail-row">
-              <span class="detail-label">Transaction Type</span>
-              <span class="type-pill">${isDelivery ? 'Delivery Order (Goods)' : 'Payment Settlement'}</span>
-            </div>
-
-            <div class="detail-row">
-              <span class="detail-label">Date of Record</span>
-              <span class="detail-val">${formatDate(txDate)}</span>
-            </div>
-
-            ${hasTanks ? `
-            <div class="detail-row">
-              <span class="detail-label">Tanks Delivered</span>
-              <span class="detail-val" style="color: #1e40af;">${tankParts}</span>
-            </div>
-            ` : ''}
-
-            ${!isDelivery ? `
-            <div class="detail-row">
-              <span class="detail-label">Payment Mode</span>
-              <span class="mode-pill">${paymentModeVal}</span>
-            </div>
-            ` : ''}
-
-            ${noteVal ? `
-            <div class="detail-row">
-              <span class="detail-label">Reference / Note</span>
-              <span class="detail-val">${noteVal}</span>
-            </div>
-            ` : ''}
-
-            <div class="amount-card">
-              <p class="amount-label">${isDelivery ? 'Total Delivery Amount' : 'Amount Cleared / Settled'}</p>
-              <p class="amount-val">${formatCurrency(txAmount)}</p>
-            </div>
-
-            <div class="signatures">
-              <div class="sig-box">
-                <div class="sig-line"></div>
-                <p class="sig-caption">Recipient / Vendor Sign</p>
-              </div>
-              <div class="sig-box">
-                <div class="sig-line"></div>
-                <p class="sig-caption">For ${COMPANY_NAME}</p>
-              </div>
-            </div>
-
-            <div class="footer-note">
-              <p>&check; Official Computer Generated Document &bull; ${COMPANY_NAME}</p>
-              <p style="margin-top: 2px;">${formatDateTime(new Date().toISOString())}</p>
-              <p class="footer-thanks">Thank you for your business!</p>
-            </div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-  };
-
   const handleDownloadPdf = async () => {
+    const txId = transaction?._id || transaction?.id || receipt?.transaction?.id;
+    if (!txId) return;
+
     setDownloadingPdf(true);
     try {
-      const html = buildHtmlReceipt();
-      if (Platform.OS === 'web') {
-        await Print.printAsync({ html });
+      const uri = await downloadReceiptPdfApi(txId);
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(uri, {
+          UTI: '.pdf',
+          mimeType: 'application/pdf',
+          dialogTitle: `Download Receipt ${receiptNo}`,
+        });
       } else {
-        const { uri } = await Print.printToFileAsync({ html });
-        const canShare = await Sharing.isAvailableAsync();
-        if (canShare) {
-          await Sharing.shareAsync(uri, {
-            UTI: '.pdf',
-            mimeType: 'application/pdf',
-            dialogTitle: `Download Receipt ${receiptNo}`,
-          });
-        } else {
-          await Print.printAsync({ uri });
-        }
+        await Print.printAsync({ uri });
       }
     } catch (err: any) {
-      console.warn('PDF export error:', err);
+      console.warn('PDF download/share error:', err);
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
+  const handlePrintPdf = async () => {
+    const txId = transaction?._id || transaction?.id || receipt?.transaction?.id;
+    if (!txId) return;
+
+    setDownloadingPdf(true);
+    try {
+      const uri = await downloadReceiptPdfApi(txId);
+      await Print.printAsync({ uri });
+    } catch (err: any) {
+      console.warn('PDF print error:', err);
     } finally {
       setDownloadingPdf(false);
     }
@@ -523,7 +207,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             <View style={styles.topButtonsRow}>
               <TouchableOpacity
                 style={styles.printHeaderBtn}
-                onPress={handleDownloadPdf}
+                onPress={handlePrintPdf}
                 disabled={downloadingPdf}
                 activeOpacity={0.8}
               >

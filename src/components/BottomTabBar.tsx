@@ -30,12 +30,6 @@ const TABS: TabItem[] = [
     iconInactive: 'people-outline',
   },
   {
-    name: 'Transactions',
-    label: 'Ledger',
-    iconActive: 'swap-horizontal',
-    iconInactive: 'swap-horizontal-outline',
-  },
-  {
     name: 'Reports',
     label: 'Reports',
     iconActive: 'bar-chart',

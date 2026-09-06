@@ -24,10 +24,11 @@
      - Three actions: `View Official Receipt`, `+ Record Another`, `Done`.
    - Pre-submission order summary card showing live vendor name, item breakdown (strictly `500L`, `1000L`, `2000L`), and total billed amount in ₹.
 
-3. **Server-Generated Official Receipts**:
-   - Unified receipt engine: Web and mobile share the identical server receipt format via `ServerReceipt`.
-   - Populated from `POST /api/v1/transactions` and `GET /api/v1/transactions/:id/receipt`.
-   - Rendered using [`ReceiptModal.tsx`](file:///d:/vasudha-polymer/app/src/components/ReceiptModal.tsx) with company header, vendor details, itemized product breakdown, and digital verification seal.
+3. **Server-Generated Official Receipts & Canonical PDF Engine**:
+   - Unified receipt engine: Web and mobile share the **identical server-generated vector PDF** from `GET /api/v1/transactions/:id/receipt/pdf`.
+   - Downloaded via [`downloadReceiptPdfApi`](file:///d:/vasudha-polymer/app/src/api/transaction.ts) using `File.downloadFileAsync` from `expo-file-system`.
+   - Native AirPrint / Android Print triggered via `Print.printAsync({ uri })` and sharing/saving via `Sharing.shareAsync(uri)`.
+   - Zero client-side HTML/PDF generation or duplication on the mobile app. All vector bounds, logo (44x44pt), and icons (12-14pt) are strictly controlled by the backend generator.
 
 4. **Web-Aligned Vendor Logic (`AddSellerModal.tsx` & `AddSellerScreen.tsx`)**:
    - Includes "Require Additional Fields" switch toggle matching web [`AddSellerModal.tsx`](file:///d:/vasudha-polymer/client/src/modules/seller/components/AddSellerModal.tsx).
@@ -35,18 +36,21 @@
    - When toggle is OFF: only Name is mandatory; Email, GST, Phone, and Address are optional.
    - Sends `requireAdditional` in API payload to `/api/v1/sellers` and shows floating toast (`"Seller created successfully."`).
 
-5. **Clean Production Authentication**:
-   - [`LoginScreen.tsx`](file:///d:/vasudha-polymer/app/src/screens/LoginScreen.tsx) provides a clean SaaS authentication experience with zero demo boxes or auto-fill buttons.
+5. **Clean Production Authentication & Official App Logo**:
+   - [`LoginScreen.tsx`](file:///d:/vasudha-polymer/app/src/screens/LoginScreen.tsx) provides a clean SaaS authentication experience with the official company logo ([`VasudhaLogo.tsx`](file:///d:/vasudha-polymer/app/src/components/VasudhaLogo.tsx) backed by `assets/logo.jpg`), and zero demo boxes or auto-fill buttons.
 
 6. **Notch & Safe Area Handling**:
    - Top headers use `useSafeAreaInsets()` from `react-native-safe-area-context` in [`NavbarHeader.tsx`](file:///d:/vasudha-polymer/app/src/components/NavbarHeader.tsx).
-   - Root screens (`Dashboard`, `Sellers`, `Transactions`, `Orders`, `Receipts`, `Reports`) never show `< Back`.
+   - Root screens (`Dashboard`, `Sellers`, `Reports`, `Receipts`, `Orders`) never show `< Back`.
 
 7. **Network Connectivity & Dynamic Host IP**:
    - [`client.ts`](file:///d:/vasudha-polymer/app/src/api/client.ts) dynamically resolves baseURL on each request, auto-detecting the host IP from Metro scriptURL for physical devices and emulators.
 
-8. **Live Real-Time Data & Shimmer Skeleton Loading**:
-   - Never use in-memory caching that causes stale figures or delays realtime data presentation.
-   - Always load data directly from the Express REST API backend on focus (`useFocusEffect`) and pull-to-refresh.
-   - While data is loading, use dark-themed Shimmer Skeletons ([`Shimmer.tsx`](file:///d:/vasudha-polymer/app/src/components/Shimmer.tsx)) matching the exact content layout (`SellerCardSkeleton`, `TransactionCardSkeleton`, `ReceiptCardSkeleton`, `DashboardSkeleton`, `ReportsSkeleton`, `SellerDetailSkeleton`) instead of blank white screens or lone spinners.
-   - Configure `app.json` with `"userInterfaceStyle": "dark"` and `"backgroundColor": "#080d1a"` to ensure seamless slide transitions on native Android and iOS devices without white edge flashes.
+8. **TanStack React Query Cache Layer & Shimmer Skeleton Loading**:
+   - Master `@tanstack/react-query` integration (`QueryClientProvider` in [`App.tsx`](file:///d:/vasudha-polymer/app/App.tsx)).
+   - Maintain centralized query configuration and key factory in [`queryClient.ts`](file:///d:/vasudha-polymer/app/src/query/queryClient.ts) (`QUERY_KEYS` for sellers, transactions, receipts, reports).
+   - Use specialized hooks in [`useQueries.ts`](file:///d:/vasudha-polymer/app/src/query/useQueries.ts) (`useDashboardQuery`, `useSellersQuery`, `useSellerDetailQuery`, `useTransactionsQuery`, `useReceiptsQuery`, `useTankReportQuery`) utilizing Stale-While-Revalidate (SWR) caching with automatic query deduplication.
+   - Enforce mutation-driven targeted cache invalidations (`invalidateSellers`, `invalidateSellerDetail`, `invalidateTransactions`, `invalidateDashboard`, `invalidateReports`, `invalidateReceipts`) immediately upon transaction or vendor changes to ensure backend data integrity.
+   - Display dark-themed Shimmer Skeletons ([`Shimmer.tsx`](file:///d:/vasudha-polymer/app/src/components/Shimmer.tsx)) strictly on cold cache loads (`isLoading && !data`). For warm cache hits, show cached data instantly without flicker while background revalidation occurs.
+   - Call `clearAllQueryCache()` upon session logout in [`AuthContext.tsx`](file:///d:/vasudha-polymer/app/src/context/AuthContext.tsx) to isolate user data.
+   - Configure `app.json` with `"userInterfaceStyle": "dark"` and `"backgroundColor": "#080d1a"` to ensure seamless transitions without white edge flashes.

@@ -26,7 +26,7 @@ export const DrawerSidebar: React.FC<DrawerSidebarProps> = ({
   activeScreen,
 }) => {
   const { user, logout } = useAuth();
-  const ROOT_SCREENS = ['Dashboard', 'Sellers', 'Reports', 'Transactions', 'Orders', 'Receipts'];
+  const ROOT_SCREENS = ['Dashboard', 'Sellers', 'Reports', 'Orders', 'Receipts'];
 
   const navigateTo = (screenName: string) => {
     onClose();
@@ -95,21 +95,6 @@ export const DrawerSidebar: React.FC<DrawerSidebarProps> = ({
               <View style={styles.badgeCore}>
                 <Text style={styles.badgeCoreText}>CORE</Text>
               </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.menuItem, activeScreen === 'Transactions' ? styles.menuItemActive : null]}
-              onPress={() => navigateTo('Transactions')}
-            >
-              <Ionicons
-                name="swap-horizontal-outline"
-                size={18}
-                color={activeScreen === 'Transactions' ? '#38bdf8' : '#94a3b8'}
-                style={{ marginRight: 12 }}
-              />
-              <Text style={[styles.itemText, activeScreen === 'Transactions' ? styles.itemTextActive : null]}>
-                Transactions
-              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity

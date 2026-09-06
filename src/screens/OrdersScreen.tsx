@@ -12,24 +12,34 @@ import { BottomTabBar } from '../components/BottomTabBar';
 import { AnimatedScreenWrapper } from '../components/AnimatedScreenWrapper';
 import { useTheme } from '../context/ThemeContext';
 
-export const OrdersScreen = ({ navigation }: any) => {
+export const OrdersScreen = ({ navigation, isEmbedded }: any) => {
   const { colors } = useTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
-    <AnimatedScreenWrapper style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
-      <NavbarHeader
-        currentScreenTitle="Orders"
-        isRootScreen={true}
-        onOpenDrawer={() => setDrawerOpen(true)}
-        navigation={navigation}
-      />
-      <DrawerSidebar
-        visible={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        navigation={navigation}
-        activeScreen="Orders"
-      />
+    <AnimatedScreenWrapper
+      style={[
+        styles.container,
+        { backgroundColor: colors.bgPrimary },
+        isEmbedded && { paddingHorizontal: 0, paddingTop: 0 },
+      ]}
+    >
+      {!isEmbedded && (
+        <NavbarHeader
+          currentScreenTitle="Orders"
+          isRootScreen={true}
+          onOpenDrawer={() => setDrawerOpen(true)}
+          navigation={navigation}
+        />
+      )}
+      {!isEmbedded && (
+        <DrawerSidebar
+          visible={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          navigation={navigation}
+          activeScreen="Orders"
+        />
+      )}
 
       <ScrollView contentContainerStyle={styles.contentContainer}>
         {/* Modular Placeholder Card Aligned with Web - UI View Only */}
@@ -54,7 +64,7 @@ export const OrdersScreen = ({ navigation }: any) => {
       </ScrollView>
 
       {/* Native App Bottom Tab Bar */}
-      <BottomTabBar activeScreen="Orders" navigation={navigation} />
+      {!isEmbedded && <BottomTabBar activeScreen="Orders" navigation={navigation} />}
     </AnimatedScreenWrapper>
   );
 };

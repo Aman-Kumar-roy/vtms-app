@@ -14,12 +14,14 @@
 
 ---
 
-## 🖨️ Server-Generated Receipts & Transaction Engine
-
-The mobile application shares the **identical server-generated receipt system** as the web dashboard:
-- Both `POST /api/v1/transactions` and `GET /api/v1/transactions/:id/receipt` return official `ServerReceipt` payloads with unique voucher numbers (`RCP-YYYYMMDD-XXXX` or `RCP-XXXXXXXX`).
-- Receipts feature company credentials from environment variables (`VASUDHA POLYMER & WATER SOLUTIONS`, GSTIN, Phone, Address), vendor profile, itemized tank unit breakdowns, and digital verification seals.
-- Displayed via [`ReceiptModal.tsx`](file:///d:/vasudha-polymer/app/src/components/ReceiptModal.tsx) with native print triggers and share options.
+## 🖨️ Server-Generated Receipts & Canonical PDF Architecture
+ 
+The mobile application consumes the **identical server-generated vector PDF** as the web dashboard:
+- The backend (`server/src/services/pdfReceiptService.ts`) generates official vector PDFs with strict `44x44pt` logo bounding, vector icons (`12-14pt`), strict `500L`, `1000L`, and `2000L` tank breakdowns, and digital verification seals.
+- Endpoint: `GET /api/v1/transactions/:id/receipt/pdf` (streams vector `application/pdf`).
+- Downloaded locally using [`downloadReceiptPdfApi`](file:///d:/vasudha-polymer/app/src/api/transaction.ts) (`File.downloadFileAsync` via `expo-file-system`).
+- Displayed and triggered in [`ReceiptModal.tsx`](file:///d:/vasudha-polymer/app/src/components/ReceiptModal.tsx) via `expo-print` (`Print.printAsync({ uri })`) and `expo-sharing` (`Sharing.shareAsync(uri)`).
+- Zero client-side template duplication: Web Receipt = Mobile Receipt = Same Server PDF.
 
 ---
 
@@ -50,10 +52,14 @@ The mobile application shares the **identical server-generated receipt system** 
 
 ---
 
-## ⚡ Live Real-Time Data & Shimmer Skeleton Loading
-
-- **Zero In-Memory Stale Caching**: All screens query live server APIs on focus and pull-to-refresh to ensure financial data is always real-time.
-- **Dark-Themed Shimmer Skeletons**: [`Shimmer.tsx`](file:///d:/vasudha-polymer/app/src/components/Shimmer.tsx) powers smooth, animated skeleton placeholders (`SellerCardSkeleton`, `TransactionCardSkeleton`, `ReceiptCardSkeleton`, `DashboardSkeleton`, `ReportsSkeleton`, `SellerDetailSkeleton`) during data fetches to eliminate blank screens and layout shift.
+## ⚡ TanStack Query Cache Architecture & Shimmer Loading
+ 
+- **Centralized Query Client**: Configured in [`src/query/queryClient.ts`](file:///d:/vasudha-polymer/app/src/query/queryClient.ts) using `@tanstack/react-query` with standard 2-minute stale duration, 15-minute garbage collection, and automatic query deduplication.
+- **Stale-While-Revalidate (SWR)**: Screens display cached records instantly on tab switches and screen transitions for zero layout shift, quietly refreshing data in the background.
+- **Query Hooks (`src/query/useQueries.ts`)**: Modular query hooks (`useDashboardQuery`, `useSellersQuery`, `useSellerDetailQuery`, `useTransactionsQuery`, `useReceiptsQuery`, `useTankReportQuery`) powering screens with built-in loading and fetching states.
+- **Targeted Mutation Invalidation**: When deliveries, payments, or vendors are added or updated, helper functions (`invalidateTransactions`, `invalidateSellers`, `invalidateDashboard`, `invalidateReports`, `invalidateReceipts`) immediately synchronize server and client state.
+- **Dark-Themed Shimmer Skeletons**: [`Shimmer.tsx`](file:///d:/vasudha-polymer/app/src/components/Shimmer.tsx) displays smooth skeleton placeholders (`SellerCardSkeleton`, `TransactionCardSkeleton`, `ReceiptCardSkeleton`, `DashboardSkeleton`, `ReportsSkeleton`, `SellerDetailSkeleton`) strictly on cold cache loads (`isLoading && !data`). Warm cache hits render without delay.
+- **Session Cache Eviction**: Auth logout executes `clearAllQueryCache()` in [`AuthContext.tsx`](file:///d:/vasudha-polymer/app/src/context/AuthContext.tsx) to prevent data leakage between sessions.
 - **Native Dark Theme Protection**: Configured `app.json` with `"userInterfaceStyle": "dark"` and `"backgroundColor": "#080d1a"` to ensure zero white canvas flashes during right-to-left slide transitions on mobile and web simulators.
 
 ---

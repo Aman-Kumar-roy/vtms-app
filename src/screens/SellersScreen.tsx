@@ -24,27 +24,37 @@ import { Colors } from '../constants/theme';
 import { AnimatedScreenWrapper } from '../components/AnimatedScreenWrapper';
 import { useFocusEffect } from '@react-navigation/native';
 import { SellerCardSkeleton } from '../components/Shimmer';
+import { queryClient, QUERY_KEYS, invalidateSellers, invalidateTransactions } from '../query/queryClient';
 
-export const SellersScreen = ({ route, navigation }: any) => {
+interface SellersScreenProps {
+  route?: any;
+  navigation: any;
+  isEmbedded?: boolean;
+}
+
+export const SellersScreen: React.FC<SellersScreenProps> = ({ route, navigation, isEmbedded = false }) => {
   const { colors } = useTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [sellers, setSellers] = useState<Seller[]>([]);
+
+  // Initialize with cached sellers if available in QueryClient
+  const cachedInitial = queryClient.getQueryData<any>(QUERY_KEYS.sellers({ page: 1, limit: 50 }));
+  const [sellers, setSellers] = useState<Seller[]>(() => cachedInitial?.sellers || []);
   const [search, setSearch] = useState<string>('');
   const [filterMode, setFilterMode] = useState<'ALL' | 'DUES' | 'SETTLED'>('ALL');
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(() => !cachedInitial?.sellers?.length);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [page, setPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(true);
-  const [overallTotals, setOverallTotals] = useState<any>(null);
+  const [overallTotals, setOverallTotals] = useState<any>(() => cachedInitial?.overallTotals || null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [addSellerVisible, setAddSellerVisible] = useState(false);
   const [txModalVisible, setTxModalVisible] = useState(false);
   const [txModalType, setTxModalType] = useState<'DELIVERY' | 'PAYMENT'>('DELIVERY');
   const [txSeller, setTxSeller] = useState<Seller | null>(null);
-  const isInitialMount = useRef(true);
-  const sellersRef = useRef<Seller[]>([]);
+  const sellersRef = useRef<Seller[]>(sellers);
   sellersRef.current = sellers;
+  const lastFetchTimeRef = useRef<number>(cachedInitial ? Date.now() : 0);
 
   useEffect(() => {
     if (route?.params?.successMsg) {
@@ -63,8 +73,14 @@ export const SellersScreen = ({ route, navigation }: any) => {
     }
 
     try {
-      const data = await getSellersApi({ page: targetPage, limit: 15 });
+      const data = await getSellersApi({ page: targetPage, limit: 50 });
       const incoming = data.sellers || [];
+
+      // Store page 1 in QueryClient cache
+      if (targetPage === 1) {
+        queryClient.setQueryData(QUERY_KEYS.sellers({ page: 1, limit: 50 }), data);
+        lastFetchTimeRef.current = Date.now();
+      }
       
       setSellers((prev) => {
         if (targetPage === 1) {
@@ -80,7 +96,7 @@ export const SellersScreen = ({ route, navigation }: any) => {
       }
 
       setPage(targetPage);
-      const nextAvailable = data.pagination?.hasNextPage ?? (incoming.length === 15);
+      const nextAvailable = data.pagination?.hasNextPage ?? (incoming.length === 50);
       setHasMore(nextAvailable);
     } catch (e) {
       console.warn('Error fetching sellers:', e);
@@ -91,9 +107,13 @@ export const SellersScreen = ({ route, navigation }: any) => {
     }
   }, []);
 
+  // Stale-while-revalidate check on focus: only re-fetch if cache is stale (> 5 mins) or list is empty
   useFocusEffect(
     useCallback(() => {
-      fetchSellers(1);
+      const isStale = Date.now() - lastFetchTimeRef.current > 1000 * 60 * 5;
+      if (sellersRef.current.length === 0 || isStale) {
+        fetchSellers(1, false);
+      }
     }, [fetchSellers])
   );
 
@@ -135,27 +155,26 @@ export const SellersScreen = ({ route, navigation }: any) => {
   });
 
   return (
-    <AnimatedScreenWrapper style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
-      <NavbarHeader
-        currentScreenTitle="Vendors Directory"
-        isRootScreen={true}
-        onOpenDrawer={() => setDrawerOpen(true)}
-        navigation={navigation}
-      />
-      <DrawerSidebar
-        visible={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        navigation={navigation}
-        activeScreen="Sellers"
-      />
+    <AnimatedScreenWrapper style={[styles.container, { backgroundColor: colors.bgPrimary }, isEmbedded && { paddingHorizontal: 0, paddingTop: 0 }]}>
+      {!isEmbedded && (
+        <>
+          <NavbarHeader
+            currentScreenTitle="Vendors Directory"
+            isRootScreen={true}
+            onOpenDrawer={() => setDrawerOpen(true)}
+            navigation={navigation}
+          />
+          <DrawerSidebar
+            visible={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+            navigation={navigation}
+            activeScreen="Sellers"
+          />
+        </>
+      )}
 
       <View style={styles.headerRow}>
-        <View style={styles.titleGroup}>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>Vendors Directory</Text>
-          <View style={styles.countBadge}>
-            <Text style={styles.countText}>{sellers.length} Partners</Text>
-          </View>
-        </View>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>Vendors Directory</Text>
 
         <TouchableOpacity
           style={styles.addBtn}
@@ -256,8 +275,9 @@ export const SellersScreen = ({ route, navigation }: any) => {
       <AddSellerModal
         visible={addSellerVisible}
         onClose={() => setAddSellerVisible(false)}
-        onSuccess={(_created) => {
+        onSuccess={async (_created) => {
           setToastMsg('Seller created successfully.');
+          await invalidateSellers();
           fetchSellers(1, true);
         }}
       />
@@ -272,7 +292,8 @@ export const SellersScreen = ({ route, navigation }: any) => {
         seller={txSeller}
         sellers={sellers}
         initialType={txModalType}
-        onSuccess={(_tx) => {
+        onSuccess={async (_tx) => {
+          await invalidateTransactions(txSeller?._id);
           fetchSellers(1, true);
         }}
       />
@@ -284,8 +305,8 @@ export const SellersScreen = ({ route, navigation }: any) => {
         onDismiss={() => setToastMsg(null)}
       />
 
-      {/* Native App Bottom Tab Bar */}
-      <BottomTabBar activeScreen="Sellers" navigation={navigation} />
+      {/* Native App Bottom Tab Bar (Only when standalone) */}
+      {!isEmbedded && <BottomTabBar activeScreen="Sellers" navigation={navigation} />}
     </AnimatedScreenWrapper>
   );
 };

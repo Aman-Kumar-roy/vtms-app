@@ -10,8 +10,8 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getSummaryReportApi, getTankSummaryReportApi } from '../api/reports';
-import { SummaryReportData, SellerTankSummaryRow, TankReportResponse } from '../types';
+import { getTankSummaryReportApi } from '../api/reports';
+import { SellerTankSummaryRow, TankReportResponse } from '../types';
 import { NavbarHeader } from '../components/NavbarHeader';
 import { DrawerSidebar } from '../components/DrawerSidebar';
 import { BottomTabBar } from '../components/BottomTabBar';
@@ -102,84 +102,99 @@ const PRESETS: DatePreset[] = [
 type SortKey = 'totalOrders' | 'sellerName' | 'total500' | 'total1000' | 'total2000';
 
 import { ReportsSkeleton } from '../components/Shimmer';
+import { queryClient, QUERY_KEYS } from '../query/queryClient';
 
-export const ReportsScreen = ({ navigation }: any) => {
+export const ReportsScreen = ({ navigation, isEmbedded }: any) => {
   const { colors } = useTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [reportLoading, setReportLoading] = useState<boolean>(false);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
-
-  // Financial summary
-  const [summary, setSummary] = useState<SummaryReportData | null>(null);
 
   // Filter state
   const [activePresetId, setActivePresetId] = useState<string>('this_month');
-  const [tankReport, setTankReport] = useState<TankReportResponse | null>(null);
-  const [search, setSearch] = useState<string>('');
-  const [sortKey, setSortKey] = useState<SortKey>('totalOrders');
-  const [sortAsc, setSortAsc] = useState<boolean>(false);
 
   const activePreset = useMemo(() => {
     return PRESETS.find((p) => p.id === activePresetId) || PRESETS[0];
   }, [activePresetId]);
 
-  const loadTankReport = useCallback(async (preset: DatePreset) => {
-    setReportLoading(true);
+  const activeParams = useMemo(() => {
+    const range = activePreset.getRange();
+    const params: { startDate?: string; endDate?: string } = {};
+    if (range.startDate && range.endDate) {
+      params.startDate = range.startDate;
+      params.endDate = range.endDate;
+    }
+    return params;
+  }, [activePreset]);
+
+  // Read initial cache if present
+  const initialCached = queryClient.getQueryData<TankReportResponse>(
+    QUERY_KEYS.tankReports(activeParams)
+  );
+
+  const [tankReport, setTankReport] = useState<TankReportResponse | null>(() => initialCached || null);
+  const [loading, setLoading] = useState<boolean>(() => !initialCached);
+  const [reportLoading, setReportLoading] = useState<boolean>(false);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+
+  const [search, setSearch] = useState<string>('');
+  const [sortKey, setSortKey] = useState<SortKey>('totalOrders');
+  const [sortAsc, setSortAsc] = useState<boolean>(false);
+
+  const loadTankReport = useCallback(async (preset: DatePreset, isPullRefresh = false) => {
+    const range = preset.getRange();
+    const params: { startDate?: string; endDate?: string } = {};
+    if (range.startDate && range.endDate) {
+      params.startDate = range.startDate;
+      params.endDate = range.endDate;
+    }
+    const queryKey = QUERY_KEYS.tankReports(params);
+    const cached = queryClient.getQueryData<TankReportResponse>(queryKey);
+
+    if (isPullRefresh) {
+      setRefreshing(true);
+    } else if (cached) {
+      setTankReport(cached);
+      setLoading(false);
+      setReportLoading(true); // background revalidation
+    } else {
+      setLoading(true);
+      setReportLoading(true);
+    }
+
     try {
-      const range = preset.getRange();
-      const params: any = {};
-      if (range.startDate && range.endDate) {
-        params.startDate = range.startDate;
-        params.endDate = range.endDate;
-      }
       const data = await getTankSummaryReportApi(params);
-      const formatted = {
+      const formatted: TankReportResponse = {
         ...data,
         period: range.label,
       };
+      queryClient.setQueryData(queryKey, formatted);
       setTankReport(formatted);
     } catch (e) {
       console.warn('Failed to load tank report:', e);
     } finally {
+      setLoading(false);
       setReportLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
-  const summaryRef = useRef<SummaryReportData | null>(null);
-  summaryRef.current = summary;
-
-  const loadData = useCallback(async (isRefresh = false) => {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else if (!summaryRef.current) {
-      setLoading(true);
-    }
-    try {
-      const sumRes = await getSummaryReportApi();
-      setSummary(sumRes);
-      await loadTankReport(activePreset);
-    } catch (e) {
-      console.warn('Failed to load reports:', e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+  // Fetch whenever active preset changes
+  useEffect(() => {
+    loadTankReport(activePreset);
   }, [activePreset, loadTankReport]);
 
+  // Revalidate on screen focus
   useFocusEffect(
     useCallback(() => {
-      loadData();
-    }, [loadData])
+      loadTankReport(activePreset);
+    }, [activePreset, loadTankReport])
   );
 
   const onRefresh = () => {
-    loadData(true);
+    loadTankReport(activePreset, true);
   };
 
   const handleSelectPreset = (preset: DatePreset) => {
     setActivePresetId(preset.id);
-    loadTankReport(preset);
   };
 
   const handleSort = (key: SortKey) => {
@@ -219,39 +234,37 @@ export const ReportsScreen = ({ navigation }: any) => {
     };
   }, [rows]);
 
-  const fmtCurrency = (val: number) => {
-    return '₹' + Number(val || 0).toLocaleString('en-IN', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  };
-
-  const collectionEfficiency =
-    summary && summary.totalBilledSales > 0
-      ? ((summary.totalClearedPayments / summary.totalBilledSales) * 100).toFixed(1)
-      : '100.0';
-
   return (
-    <AnimatedScreenWrapper style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
-      <NavbarHeader
-        currentScreenTitle="Reports & Analytics"
-        isRootScreen={true}
-        onOpenDrawer={() => setDrawerOpen(true)}
-        navigation={navigation}
-      />
-      <DrawerSidebar
-        visible={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        navigation={navigation}
-        activeScreen="Reports"
-      />
+    <AnimatedScreenWrapper
+      style={[
+        styles.container,
+        { backgroundColor: colors.bgPrimary },
+        isEmbedded && { paddingHorizontal: 0, paddingTop: 0 },
+      ]}
+    >
+      {!isEmbedded && (
+        <NavbarHeader
+          currentScreenTitle="Reports & Analytics"
+          isRootScreen={true}
+          onOpenDrawer={() => setDrawerOpen(true)}
+          navigation={navigation}
+        />
+      )}
+      {!isEmbedded && (
+        <DrawerSidebar
+          visible={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          navigation={navigation}
+          activeScreen="Reports"
+        />
+      )}
 
       <ScrollView
         style={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accentHover} />}
         contentContainerStyle={{ paddingBottom: 40 }}
       >
-        {loading && !summary ? (
+        {loading && !tankReport ? (
           <ReportsSkeleton />
         ) : (
           <>
@@ -487,7 +500,7 @@ export const ReportsScreen = ({ navigation }: any) => {
                       {row.sellerName}
                     </Text>
                     <Text style={[styles.vendorSub, { color: colors.textMuted }]}>
-                      Tap to view vendor ledger & details
+                      Tap to view vendor profile & transactions
                     </Text>
                   </View>
 
@@ -518,63 +531,12 @@ export const ReportsScreen = ({ navigation }: any) => {
             );
           })
         )}
-
-        {/* ── Financial Health & Overall Platform KPIs ── */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Financial Overview</Text>
-          <Text style={[styles.sectionCount, { color: colors.textMuted }]}>Platform lifetime</Text>
-        </View>
-
-        {/* Collection Efficiency Banner */}
-        <View style={[styles.efficiencyCard, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
-          <View style={styles.effLeft}>
-            <Text style={[styles.effLabel, { color: colors.textMuted }]}>COLLECTION EFFICIENCY</Text>
-            <Text style={[styles.effValue, { color: '#10b981' }]}>{collectionEfficiency}%</Text>
-            <Text style={[styles.effSub, { color: colors.textMuted }]}>
-              {fmtCurrency(summary?.totalClearedPayments || 0)} collected of {fmtCurrency(summary?.totalBilledSales || 0)}
-            </Text>
-          </View>
-          <View style={styles.effBadge}>
-            <Ionicons name="trending-up" size={26} color="#10b981" />
-          </View>
-        </View>
-
-        {/* KPI Grid */}
-        <View style={styles.kpiGrid}>
-          <View style={[styles.kpiBox, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
-            <Text style={[styles.kpiLabel, { color: colors.textMuted }]}>TOTAL BILLED</Text>
-            <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>
-              {fmtCurrency(summary?.totalBilledSales || 0)}
-            </Text>
-          </View>
-
-          <View style={[styles.kpiBox, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
-            <Text style={[styles.kpiLabel, { color: colors.textMuted }]}>TOTAL CLEARED</Text>
-            <Text style={[styles.kpiValue, { color: '#10b981' }]}>
-              {fmtCurrency(summary?.totalClearedPayments || 0)}
-            </Text>
-          </View>
-
-          <View style={[styles.kpiBox, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
-            <Text style={[styles.kpiLabel, { color: colors.textMuted }]}>OUTSTANDING DUES</Text>
-            <Text style={[styles.kpiValue, { color: (summary?.totalPendingReceivables || 0) > 0 ? '#ef4444' : '#10b981' }]}>
-              {fmtCurrency(summary?.totalPendingReceivables || 0)}
-            </Text>
-          </View>
-
-          <View style={[styles.kpiBox, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
-            <Text style={[styles.kpiLabel, { color: colors.textMuted }]}>ACTIVE PARTNERS</Text>
-            <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>
-              {summary?.totalActiveVendors || 0}
-            </Text>
-          </View>
-        </View>
           </>
         )}
       </ScrollView>
 
       {/* Native App Bottom Tab Bar */}
-      <BottomTabBar activeScreen="Reports" navigation={navigation} />
+      {!isEmbedded && <BottomTabBar activeScreen="Reports" navigation={navigation} />}
     </AnimatedScreenWrapper>
   );
 };
@@ -836,61 +798,6 @@ const styles = StyleSheet.create({
   },
   unitChipVal: {
     fontSize: 11,
-    fontWeight: '800',
-  },
-  efficiencyCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 10,
-  },
-  effLeft: {
-    flex: 1,
-  },
-  effLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  effValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    marginVertical: 3,
-  },
-  effSub: {
-    fontSize: 11,
-  },
-  effBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  kpiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 14,
-  },
-  kpiBox: {
-    width: '48.5%',
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  kpiLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  kpiValue: {
-    fontSize: 13,
     fontWeight: '800',
   },
 });

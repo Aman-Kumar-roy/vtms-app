@@ -6,6 +6,8 @@ import { Platform } from 'react-native';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { clearAllQueryCache } from '../query/queryClient';
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
@@ -48,6 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
     setAuthToken(null);
     saveStoredToken(null);
+    clearAllQueryCache();
   }, []);
 
   const refreshProfile = useCallback(async () => {

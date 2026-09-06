@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { getSellersApi } from '../api/seller';
 import { createDeliveryApi } from '../api/transaction';
+import { invalidateTransactions } from '../query/queryClient';
 import { Seller, Transaction } from '../types';
 import { TankSelector } from '../components/TankSelector';
 import { NavbarHeader } from '../components/NavbarHeader';
@@ -108,6 +109,7 @@ export const DeliveryFormScreen = ({ route, navigation }: any) => {
         tank2000,
       });
 
+      await invalidateTransactions(selectedSeller?._id || selectedSeller?.id);
       setCreatedTransaction(tx);
       setShowReceiptModal(true);
     } catch (e: any) {
@@ -161,7 +163,7 @@ export const DeliveryFormScreen = ({ route, navigation }: any) => {
           </View>
           <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Vendor Account Required</Text>
           <Text style={[styles.emptyDesc, { color: colors.textMuted }]}>
-            Transactions must be recorded inside a specific vendor's account ledger. Please select a vendor from the directory to start recording deliveries.
+            Deliveries must be recorded for a specific vendor. Please select a vendor from the directory to start recording deliveries.
           </Text>
           <TouchableOpacity
             style={[styles.primaryActionBtn, { backgroundColor: colors.accentHover }]}

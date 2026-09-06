@@ -37,11 +37,15 @@
   - `1,000L Storage Tank`
   - `2,000L Storage Tank`
 
-### 3. Server-Generated Official Receipts
-- The mobile app MUST use the **same server-generated receipt** format as the web application.
-- Both `POST /api/v1/transactions` and `GET /api/v1/transactions/:id/receipt` supply the official `ServerReceipt` payload.
-- Rendered by [`ReceiptModal.tsx`](file:///d:/vasudha-polymer/app/src/components/ReceiptModal.tsx) with company details from server, vendor details, itemized table, and digital verification seal.
-- Do NOT create separate mobile-only receipt generation logic.
+### 3. Server-Generated Official Receipts & Canonical PDF Architecture
+- **Single Source of Truth**: The mobile application MUST consume the **identical server-generated vector PDF** produced by the Express backend (`GET /api/v1/transactions/:id/receipt/pdf`).
+- **No Client-Side Template Duplication**: Do NOT recreate, lay out, or render HTML receipts on the mobile device. The mobile app has zero independent receipt templates.
+- **Downloading & Sharing Engine**:
+  - [`downloadReceiptPdfApi`](file:///d:/vasudha-polymer/app/src/api/transaction.ts) downloads the canonical PDF directly to the local cache directory using `expo-file-system` (`File.downloadFileAsync`).
+  - [`ReceiptModal.tsx`](file:///d:/vasudha-polymer/app/src/components/ReceiptModal.tsx) provides two primary actions:
+    - **Print / PDF**: Calls `Print.printAsync({ uri })` from `expo-print` for high-fidelity native printing via iOS AirPrint / Android Print.
+    - **Download PDF**: Calls `Sharing.shareAsync(uri)` from `expo-sharing` to share/save the exact PDF file across WhatsApp, Gmail, Drive, or Files.
+- **Visual Parity**: Logo dimensions (`44x44pt`), icons (`12-14pt`), fonts, and table layouts are identical between Web and Mobile because both consume the same backend PDF stream.
 
 ### 4. Seller Toggle Logic & In-Context Modal (Web Parity)
 - Both [`AddSellerModal.tsx`](file:///d:/vasudha-polymer/app/src/components/AddSellerModal.tsx) and [`AddSellerScreen.tsx`](file:///d:/vasudha-polymer/app/src/screens/AddSellerScreen.tsx) implement the exact "Require additional fields" switch toggle matching web:
@@ -50,13 +54,13 @@
   - Passes `requireAdditional` in API payload to `/api/v1/sellers`.
   - Shows floating toast (`"Seller created successfully."`) and immediately refreshes vendor list in-place.
 
-### 5. Clean Production Authentication (No Demo UI)
-- [`LoginScreen.tsx`](file:///d:/vasudha-polymer/app/src/screens/LoginScreen.tsx) must be a clean production authentication screen.
+### 5. Clean Production Authentication & Official App Logo
+- [`LoginScreen.tsx`](file:///d:/vasudha-polymer/app/src/screens/LoginScreen.tsx) must be a clean production authentication screen featuring the official app logo image ([`VasudhaLogo.tsx`](file:///d:/vasudha-polymer/app/src/components/VasudhaLogo.tsx) backed by `assets/logo.jpg`).
 - Remove all demo boxes, auto-fill buttons, and placeholder test credentials.
 
 ### 6. Notch & Layout Polish
 - Wrap [`NavbarHeader.tsx`](file:///d:/vasudha-polymer/app/src/components/NavbarHeader.tsx) with `useSafeAreaInsets()` from `react-native-safe-area-context` to prevent notch/status-bar overlap.
-- Root screens (`Dashboard`, `Sellers`, `Transactions`, `Orders`, `Receipts`, `Reports`) must NEVER display `< Back`.
+- Root screens (`Dashboard`, `Sellers`, `Reports`, `Receipts`, `Orders`) must NEVER display `< Back`.
 - Sub-screens safely fall back to `Dashboard` if `navigation.canGoBack()` is false.
 
 ### 7. Network & API Connectivity
@@ -64,16 +68,42 @@
   - Web: `http://localhost:5000/api/v1` (or `/api/v1` for production)
   - Native: Auto-detects host machine IP from Metro scriptURL (or fallback LAN IP) to ensure physical devices and emulators connect seamlessly.
 
-### 8. Live Real-Time Data & Shimmer Skeleton Loading
-- **Real-Time Data**: All screens query live server APIs on focus (`useFocusEffect`) and pull-to-refresh.
-- **NO Stale In-Memory Caching**: Do NOT use artificial in-memory caching that masks live updates or prevents realtime calculation display.
-- **Shimmer / Skeleton Loading**: During data fetches, never show blank white screens or standalone spinners. Render dark-themed Shimmer Skeletons ([`Shimmer.tsx`](file:///d:/vasudha-polymer/app/src/components/Shimmer.tsx)):
-  - `SellerCardSkeleton` for `SellersScreen`
-  - `TransactionCardSkeleton` for `TransactionsScreen`
-  - `ReceiptCardSkeleton` for `ReceiptsScreen`
-  - `DashboardSkeleton` for `DashboardScreen`
-  - `ReportsSkeleton` for `ReportsScreen`
-  - `SellerDetailSkeleton` for `SellerDetailScreen`
+### 8. Live Real-Time Data & TanStack Query Cache Architecture
+- **Single Source of Truth**: Express REST API backend remains the authoritative single source of truth. Dynamic ledger calculations (`totalDeliveries`, `totalPaid`, `totalDues`) are never hardcoded or client-computed.
+- **TanStack React Query Cache Layer (`@tanstack/react-query`)**:
+  - Global `QueryClient` configured in [`src/query/queryClient.ts`](file:///d:/vasudha-polymer/app/src/query/queryClient.ts) with `staleTime: 2min` (5min for vendor directories), `gcTime: 15min`, and `refetchOnReconnect: true`.
+  - **Stale-While-Revalidate (SWR)**: Cached queries display immediately on screen transitions for a zero-flicker experience, while background revalidation fetches fresh data quietly.
+  - **Automatic Deduplication**: Concurrent calls to identical endpoints across screens or tabs are automatically deduplicated.
+- **Centralized Query Keys**:
+  - Use `QUERY_KEYS` factory in [`src/query/queryClient.ts`](file:///d:/vasudha-polymer/app/src/query/queryClient.ts) (`sellers`, `sellerDetail`, `transactions`, `summaryReport`, `tankReport`, `receipts`) to guarantee consistent cache addressing.
+- **Standardized Query Hooks**:
+  - All screens leverage dedicated hooks in [`src/query/useQueries.ts`](file:///d:/vasudha-polymer/app/src/query/useQueries.ts):
+    - `useDashboardQuery()`
+    - `useSellersQuery(params)`
+    - `useSellerDetailQuery(id, params)`
+    - `useTransactionsQuery(params)`
+    - `useReceiptsQuery(params)`
+    - `useTankReportQuery(params)`
+- **Targeted Cache Invalidation on Mutations**:
+  - Whenever any mutation occurs (e.g. creating vendor, recording delivery, recording payment, updating records), immediately invoke targeted invalidation helpers from [`src/query/queryClient.ts`](file:///d:/vasudha-polymer/app/src/query/queryClient.ts):
+    - `invalidateSellers()`
+    - `invalidateSellerDetail(sellerId)`
+    - `invalidateTransactions(sellerId?)`
+    - `invalidateDashboard()`
+    - `invalidateReports()`
+    - `invalidateReceipts()`
+  - Never allow mutations to leave stale cache records in memory.
+- **Shimmer / Skeleton Loading Protocol**:
+  - Render dark-themed Shimmer Skeletons ([`Shimmer.tsx`](file:///d:/vasudha-polymer/app/src/components/Shimmer.tsx)) **ONLY on cold cache loads** (`isLoading && !data`):
+    - `DashboardSkeleton` for `DashboardScreen`
+    - `SellerCardSkeleton` for `SellersScreen`
+    - `SellerDetailSkeleton` for `SellerDetailScreen`
+    - `TransactionCardSkeleton` for `TransactionsScreen`
+    - `ReceiptCardSkeleton` for `ReceiptsScreen`
+    - `ReportsSkeleton` for `ReportsScreen`
+  - On warm cache hits (`data` already present), render UI immediately without layout shift or skeleton flashing, using `isFetching` for pull-to-refresh spinners.
+- **Session Cache Eviction**:
+  - Always invoke `clearAllQueryCache()` upon user logout in [`AuthContext.tsx`](file:///d:/vasudha-polymer/app/src/context/AuthContext.tsx) to completely scrub cached tenant data.
 - **Native Dark Background**: `app.json` enforces `"userInterfaceStyle": "dark"` and `"backgroundColor": "#080d1a"` across Android and iOS to prevent white canvas flashing during slide transitions.
 
 ### 9. Commands & Verification

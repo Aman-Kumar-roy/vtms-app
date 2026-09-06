@@ -101,8 +101,11 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.warn(`[API Response Error] ${error?.config?.baseURL}${error?.config?.url}:`, error?.message || error);
-    if (error.response && error.response.status === 401) {
+    const isLoginEndpoint = error?.config?.url?.includes('/auth/login');
+    if (!isLoginEndpoint) {
+      console.log(`[API Response Error] ${error?.config?.baseURL}${error?.config?.url}:`, error?.message || error);
+    }
+    if (error.response && error.response.status === 401 && !isLoginEndpoint) {
       if (unauthorizedHandler) {
         unauthorizedHandler();
       }

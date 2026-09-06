@@ -49,7 +49,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
     { id: 'cmd_sellers', title: 'Go to Vendors Directory', category: 'NAVIGATION', icon: '👥', targetScreen: 'Sellers' },
     { id: 'cmd_reports', title: 'Go to Business Growth & Reports', category: 'NAVIGATION', icon: '📈', targetScreen: 'Reports' },
     { id: 'cmd_orders', title: 'Go to Orders Queue', category: 'NAVIGATION', icon: '📦', targetScreen: 'Orders' },
-    { id: 'cmd_receipts', title: 'Go to Receipts Ledger', category: 'NAVIGATION', icon: '🧾', targetScreen: 'Receipts' },
+    { id: 'cmd_receipts', title: 'Go to Receipts Center', category: 'NAVIGATION', icon: '🧾', targetScreen: 'Receipts' },
     { id: 'cmd_add_del', title: 'Record New Tank Delivery', category: 'ACTION', icon: '🚚', targetScreen: 'DeliveryForm' },
     { id: 'cmd_add_pay', title: 'Record New Vendor Payment', category: 'ACTION', icon: '💰', targetScreen: 'PaymentForm' },
   ];

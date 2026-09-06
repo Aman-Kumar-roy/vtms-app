@@ -4,18 +4,15 @@ import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './src/query/queryClient';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { LoginScreen } from './src/screens/LoginScreen';
-import { DashboardScreen } from './src/screens/DashboardScreen';
-import { SellersScreen } from './src/screens/SellersScreen';
+import { MainScreen } from './src/screens/MainScreen';
 import { AddSellerScreen } from './src/screens/AddSellerScreen';
 import { DeliveryFormScreen } from './src/screens/DeliveryFormScreen';
 import { PaymentFormScreen } from './src/screens/PaymentFormScreen';
-import { TransactionsScreen } from './src/screens/TransactionsScreen';
-import { ReportsScreen } from './src/screens/ReportsScreen';
-import { OrdersScreen } from './src/screens/OrdersScreen';
-import { ReceiptsScreen } from './src/screens/ReceiptsScreen';
 import { SellerDetailScreen } from './src/screens/SellerDetailScreen';
 
 const Stack = createNativeStackNavigator();
@@ -31,6 +28,26 @@ const navTheme = {
     primary: '#0284c7',
   },
 };
+
+// Aliases for root tab screens ensuring seamless backward compatibility
+const DashboardTabScreen = (props: any) => (
+  <MainScreen {...props} route={{ ...props.route, params: { ...props.route?.params, tab: 'Dashboard' } }} />
+);
+const SellersTabScreen = (props: any) => (
+  <MainScreen {...props} route={{ ...props.route, params: { ...props.route?.params, tab: 'Sellers' } }} />
+);
+const TransactionsTabScreen = (props: any) => (
+  <MainScreen {...props} route={{ ...props.route, params: { ...props.route?.params, tab: 'Transactions' } }} />
+);
+const ReportsTabScreen = (props: any) => (
+  <MainScreen {...props} route={{ ...props.route, params: { ...props.route?.params, tab: 'Reports' } }} />
+);
+const ReceiptsTabScreen = (props: any) => (
+  <MainScreen {...props} route={{ ...props.route, params: { ...props.route?.params, tab: 'Receipts' } }} />
+);
+const OrdersTabScreen = (props: any) => (
+  <MainScreen {...props} route={{ ...props.route, params: { ...props.route?.params, tab: 'Orders' } }} />
+);
 
 const AppNavigator = () => {
   const { user } = useAuth();
@@ -51,16 +68,43 @@ const AppNavigator = () => {
           <Stack.Screen name="Login" component={LoginScreen} />
         ) : (
           <>
-            <Stack.Screen name="Dashboard" component={DashboardScreen} />
-            <Stack.Screen name="Reports" component={ReportsScreen} />
-            <Stack.Screen name="Sellers" component={SellersScreen} />
-            <Stack.Screen name="SellerDetail" component={SellerDetailScreen} />
-            <Stack.Screen name="AddSeller" component={AddSellerScreen} />
-            <Stack.Screen name="DeliveryForm" component={DeliveryFormScreen} />
-            <Stack.Screen name="PaymentForm" component={PaymentFormScreen} />
-            <Stack.Screen name="Transactions" component={TransactionsScreen} />
-            <Stack.Screen name="Orders" component={OrdersScreen} />
-            <Stack.Screen name="Receipts" component={ReceiptsScreen} />
+            <Stack.Screen name="Main" component={MainScreen} />
+            <Stack.Screen name="Dashboard" component={DashboardTabScreen} />
+            <Stack.Screen name="Sellers" component={SellersTabScreen} />
+            <Stack.Screen name="Transactions" component={TransactionsTabScreen} />
+            <Stack.Screen name="Reports" component={ReportsTabScreen} />
+            <Stack.Screen name="Receipts" component={ReceiptsTabScreen} />
+            <Stack.Screen name="Orders" component={OrdersTabScreen} />
+
+            {/* Sub-screens pushed onto the stack with Back button */}
+            <Stack.Screen
+              name="SellerDetail"
+              component={SellerDetailScreen}
+              options={{
+                animation: Platform.OS === 'web' ? 'none' : 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="AddSeller"
+              component={AddSellerScreen}
+              options={{
+                animation: Platform.OS === 'web' ? 'none' : 'slide_from_bottom',
+              }}
+            />
+            <Stack.Screen
+              name="DeliveryForm"
+              component={DeliveryFormScreen}
+              options={{
+                animation: Platform.OS === 'web' ? 'none' : 'slide_from_bottom',
+              }}
+            />
+            <Stack.Screen
+              name="PaymentForm"
+              component={PaymentFormScreen}
+              options={{
+                animation: Platform.OS === 'web' ? 'none' : 'slide_from_bottom',
+              }}
+            />
           </>
         )}
       </Stack.Navigator>
@@ -71,11 +115,13 @@ const AppNavigator = () => {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <ThemeProvider>
-        <AuthProvider>
-          <AppNavigator />
-        </AuthProvider>
-      </ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AuthProvider>
+            <AppNavigator />
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
     </SafeAreaProvider>
   );
 }

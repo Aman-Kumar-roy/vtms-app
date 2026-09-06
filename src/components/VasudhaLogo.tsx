@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, Image } from 'react-native';
 
 interface VasudhaLogoProps {
   size?: number;
@@ -15,14 +14,14 @@ export const VasudhaLogo: React.FC<VasudhaLogoProps> = ({
 }) => {
   return (
     <View style={styles.container}>
-      {/* Outer Glow & Professional Vector Ring */}
+      {/* Outer Glow & Professional Brand Ring */}
       <View
         style={[
           styles.glowRing,
           {
             width: size + 8,
             height: size + 8,
-            borderRadius: (size + 8) / 2,
+            borderRadius: Math.round((size + 8) / 3),
           },
         ]}
       >
@@ -32,15 +31,20 @@ export const VasudhaLogo: React.FC<VasudhaLogoProps> = ({
             {
               width: size,
               height: size,
-              borderRadius: size / 2,
+              borderRadius: Math.round(size / 3),
             },
           ]}
         >
-          {/* Layered Vector Icon Motif */}
-          <Ionicons name="cube" size={Math.round(size * 0.44)} color="#38bdf8" />
-          <View style={styles.monogramBadge}>
-            <Text style={styles.monogramText}>VP</Text>
-          </View>
+          {/* Official App Logo */}
+          <Image
+            source={require('../../assets/logo.jpg')}
+            style={{
+              width: size,
+              height: size,
+              borderRadius: Math.round(size / 3),
+            }}
+            resizeMode="cover"
+          />
         </View>
       </View>
 
@@ -61,44 +65,29 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   glowRing: {
-    backgroundColor: 'rgba(2, 132, 199, 0.2)',
+    backgroundColor: 'rgba(2, 132, 199, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: 'rgba(56, 189, 248, 0.4)',
+    borderColor: 'rgba(56, 189, 248, 0.5)',
     shadowColor: '#38bdf8',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 10,
+    padding: 2,
   },
   innerBadge: {
     backgroundColor: '#070b14',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#1e293b',
-    position: 'relative',
-  },
-  monogramBadge: {
-    position: 'absolute',
-    bottom: 2,
-    backgroundColor: '#0284c7',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#38bdf8',
-  },
-  monogramText: {
-    color: '#ffffff',
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
   },
   textContainer: {
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 12,
   },
   mainTitle: {
     color: '#f8fafc',
@@ -115,3 +104,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getSummaryReportApi } from '../api/reports';
-import { getSellersApi } from '../api/seller';
-import { SummaryReportData, Seller } from '../types';
+import { Seller } from '../types';
 import { NavbarHeader } from '../components/NavbarHeader';
 import { DrawerSidebar } from '../components/DrawerSidebar';
 import { TankSummaryCard } from '../components/TankSummaryCard';
@@ -24,17 +21,19 @@ import { BottomTabBar } from '../components/BottomTabBar';
 import { useTheme } from '../context/ThemeContext';
 import { Colors } from '../constants/theme';
 import { AnimatedScreenWrapper } from '../components/AnimatedScreenWrapper';
-import { useFocusEffect } from '@react-navigation/native';
 import { DashboardSkeleton } from '../components/Shimmer';
+import { useDashboardQuery } from '../query/useQueries';
+import { invalidateDashboard, invalidateTransactions } from '../query/queryClient';
 
-export const DashboardScreen = ({ navigation }: any) => {
+interface DashboardScreenProps {
+  navigation: any;
+  route?: any;
+  isEmbedded?: boolean;
+}
+
+export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, isEmbedded = false }) => {
   const { colors } = useTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [report, setReport] = useState<SummaryReportData | null>(null);
-  const [sellers, setSellers] = useState<Seller[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
 
   // In-context modals & notifications
   const [addSellerVisible, setAddSellerVisible] = useState(false);
@@ -43,40 +42,11 @@ export const DashboardScreen = ({ navigation }: any) => {
   const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  const dataLoadedRef = useRef(false);
-  dataLoadedRef.current = !!(report || sellers.length > 0);
-
-  const fetchData = useCallback(async (isRefresh = false) => {
-    setError(null);
-    if (isRefresh) {
-      setRefreshing(true);
-    } else if (!dataLoadedRef.current) {
-      setLoading(true);
-    }
-    try {
-      const [summaryData, sellerRes] = await Promise.all([
-        getSummaryReportApi(),
-        getSellersApi({ limit: 5 }),
-      ]);
-      setReport(summaryData);
-      setSellers(sellerRes.sellers || []);
-    } catch (e: any) {
-      console.warn('Dashboard fetch error:', e.message);
-      setError(e.message || 'Unable to connect to server');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-    }, [fetchData])
-  );
+  // React Query Caching Layer with Stale-While-Revalidate
+  const { report, sellers, isLoading, isFetching, isError, error, refetch } = useDashboardQuery();
 
   const onRefresh = () => {
-    fetchData(true);
+    refetch();
   };
 
   const fmtCurrency = (val: number) => {
@@ -86,36 +56,45 @@ export const DashboardScreen = ({ navigation }: any) => {
     });
   };
 
+  const collectionEfficiency =
+    report && (report.totalBilledSales || 0) > 0
+      ? ((report.totalClearedPayments / report.totalBilledSales) * 100).toFixed(1)
+      : '100.0';
+
   const leadingVendors = (report?.topVendors || []).slice(0, 5);
 
   return (
-    <AnimatedScreenWrapper style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
-      <NavbarHeader
-        currentScreenTitle="Dashboard"
-        isRootScreen={true}
-        onOpenDrawer={() => setDrawerOpen(true)}
-        navigation={navigation}
-      />
-      <DrawerSidebar
-        visible={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        navigation={navigation}
-        activeScreen="Dashboard"
-      />
+    <AnimatedScreenWrapper style={[styles.container, { backgroundColor: colors.bgPrimary }, isEmbedded && { paddingHorizontal: 0, paddingTop: 0 }]}>
+      {!isEmbedded && (
+        <>
+          <NavbarHeader
+            currentScreenTitle="Dashboard"
+            isRootScreen={true}
+            onOpenDrawer={() => setDrawerOpen(true)}
+            navigation={navigation}
+          />
+          <DrawerSidebar
+            visible={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+            navigation={navigation}
+            activeScreen="Dashboard"
+          />
+        </>
+      )}
 
       <ScrollView
         style={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accentHover} />}
+        refreshControl={<RefreshControl refreshing={isFetching} onRefresh={onRefresh} tintColor={colors.accentHover} />}
       >
-        {loading && !report && sellers.length === 0 ? (
+        {isLoading && !report && sellers.length === 0 ? (
           <DashboardSkeleton />
         ) : (
           <>
-            {error && (
+            {isError && !report && (
               <View style={styles.errorBanner}>
                 <Ionicons name="alert-circle" size={18} color="#ef4444" />
-                <Text style={styles.errorText}>{error}</Text>
-                <TouchableOpacity onPress={() => fetchData(false)} style={styles.retryBtn}>
+                <Text style={styles.errorText}>{(error as any)?.message || 'Unable to connect to server'}</Text>
+                <TouchableOpacity onPress={() => refetch()} style={styles.retryBtn}>
                   <Text style={styles.retryBtnText}>Retry</Text>
                 </TouchableOpacity>
               </View>
@@ -132,19 +111,21 @@ export const DashboardScreen = ({ navigation }: any) => {
                   resizeMode="cover"
                 />
               </View>
-              <View>
-                <Text style={[styles.hubBrandName, { color: colors.textPrimary }]}>
-                  Vasudha Polymer Admin Hub
+              <View style={styles.hubBrandTextWrap}>
+                <Text style={[styles.hubBrandName, { color: colors.textPrimary }]} numberOfLines={1}>
+                  Vasudha Polymer
                 </Text>
-                <Text style={[styles.hubSubTitle, { color: colors.textMuted }]}>
-                  Financial & Dispatch Overview
+                <Text style={[styles.hubSubTitle, { color: colors.textMuted }]} numberOfLines={1}>
+                  Admin Hub Overview
                 </Text>
               </View>
             </View>
 
-            <View style={styles.liveStatusPill}>
-              <View style={styles.livePulseDot} />
-              <Text style={styles.liveStatusText}>LIVE SYNCED</Text>
+            <View style={styles.activeSellersBadge}>
+              <View style={styles.activeDot} />
+              <Text style={styles.activeSellersText}>
+                {report?.totalActiveVendors ?? sellers.length} Active Sellers
+              </Text>
             </View>
           </View>
 
@@ -190,6 +171,47 @@ export const DashboardScreen = ({ navigation }: any) => {
                 </Text>
               </View>
             </View>
+          </View>
+        </View>
+
+        {/* Real-Time Collection Efficiency Card */}
+        <View style={[styles.efficiencyCard, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
+          <View style={styles.effHeaderRow}>
+            <View style={styles.effTitleGroup}>
+              <View style={styles.effIconWrap}>
+                <Ionicons name="trending-up" size={16} color="#10b981" />
+              </View>
+              <View>
+                <Text style={[styles.effCardTitle, { color: colors.textPrimary }]}>Collection Efficiency</Text>
+                <Text style={[styles.effCardSub, { color: colors.textMuted }]}>Real-time payment recovery</Text>
+              </View>
+            </View>
+            <View style={[styles.effPercentBadge, { backgroundColor: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.3)' }]}>
+              <Text style={styles.effPercentText}>{collectionEfficiency}%</Text>
+            </View>
+          </View>
+
+          {/* Visual Progress Bar / Graph */}
+          <View style={styles.effProgressTrack}>
+            <View
+              style={[
+                styles.effProgressBar,
+                {
+                  width: `${Math.min(100, Math.max(0, Number(collectionEfficiency)))}%`,
+                  backgroundColor: Number(collectionEfficiency) >= 75 ? '#10b981' : Number(collectionEfficiency) >= 40 ? '#f59e0b' : '#ef4444',
+                },
+              ]}
+            />
+          </View>
+
+          {/* Recovery Summary Metrics Footer */}
+          <View style={styles.effFooterRow}>
+            <Text style={[styles.effFooterText, { color: colors.textMuted }]}>
+              Cleared: <Text style={{ color: '#10b981', fontWeight: '700' }}>{fmtCurrency(report?.totalClearedPayments || 0)}</Text>
+            </Text>
+            <Text style={[styles.effFooterText, { color: colors.textMuted }]}>
+              Billed: <Text style={{ color: colors.accentHover, fontWeight: '700' }}>{fmtCurrency(report?.totalBilledSales || 0)}</Text>
+            </Text>
           </View>
         </View>
 
@@ -294,9 +316,10 @@ export const DashboardScreen = ({ navigation }: any) => {
       <AddSellerModal
         visible={addSellerVisible}
         onClose={() => setAddSellerVisible(false)}
-        onSuccess={(_created) => {
+        onSuccess={async (_created) => {
           setToastMsg('Seller created successfully.');
-          fetchData();
+          await invalidateDashboard();
+          refetch();
         }}
       />
 
@@ -310,8 +333,9 @@ export const DashboardScreen = ({ navigation }: any) => {
         seller={selectedSeller}
         sellers={sellers}
         initialType={txModalType}
-        onSuccess={(_tx) => {
-          fetchData();
+        onSuccess={async (_tx) => {
+          await invalidateTransactions(selectedSeller?._id);
+          refetch();
         }}
       />
 
@@ -322,8 +346,8 @@ export const DashboardScreen = ({ navigation }: any) => {
         onDismiss={() => setToastMsg(null)}
       />
 
-      {/* Native App Bottom Tab Bar */}
-      <BottomTabBar activeScreen="Dashboard" navigation={navigation} />
+      {/* Native App Bottom Tab Bar (Only when standalone) */}
+      {!isEmbedded && <BottomTabBar activeScreen="Dashboard" navigation={navigation} />}
     </AnimatedScreenWrapper>
   );
 };
@@ -392,55 +416,64 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 14,
+    gap: 8,
   },
   hubBrandGroup: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 9,
+    minWidth: 0,
   },
   hubLogoContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 9,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(56, 189, 248, 0.4)',
+    flexShrink: 0,
   },
   hubLogoImg: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
+  },
+  hubBrandTextWrap: {
+    flex: 1,
+    minWidth: 0,
   },
   hubBrandName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   hubSubTitle: {
     fontSize: 11,
     fontWeight: '600',
   },
-  liveStatusPill: {
+  activeSellersBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    gap: 5,
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.25)',
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    flexShrink: 0,
   },
-  livePulseDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: '#10b981',
+  activeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#38bdf8',
   },
-  liveStatusText: {
-    color: '#10b981',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+  activeSellersText: {
+    color: '#38bdf8',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   summaryContainer: {
     paddingVertical: 14,
@@ -601,5 +634,71 @@ const styles = StyleSheet.create({
   },
   vendorDuesLabel: {
     fontSize: 10,
+  },
+  efficiencyCard: {
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  effHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  effTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  effIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  effCardTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  effCardSub: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  effPercentBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  effPercentText: {
+    color: '#10b981',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  effProgressTrack: {
+    height: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginVertical: 4,
+  },
+  effProgressBar: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  effFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  effFooterText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createSellerApi, updateSellerApi } from '../api/seller';
+import { invalidateSellers } from '../query/queryClient';
 import { NavbarHeader } from '../components/NavbarHeader';
 import { useTheme } from '../context/ThemeContext';
 import { AnimatedScreenWrapper } from '../components/AnimatedScreenWrapper';
@@ -88,6 +89,7 @@ export const AddSellerScreen = ({ route, navigation }: any) => {
           requireAdditional,
         });
       }
+      await invalidateSellers();
       const msg = isEditing ? 'Vendor updated successfully!' : 'Seller created successfully.';
       navigation.navigate('Sellers', { successMsg: msg });
     } catch (e: any) {
@@ -111,7 +113,7 @@ export const AddSellerScreen = ({ route, navigation }: any) => {
             {isEditing ? 'Update Vendor Account' : 'Register New Vendor'}
           </Text>
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-            Maintain full business profile, GST credentials, and ledger tracking.
+            Maintain full business profile, GST credentials, and financial tracking.
           </Text>
 
           {errors.form && (

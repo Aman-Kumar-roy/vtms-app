@@ -23,16 +23,27 @@ import { ToastNotification } from '../components/ToastNotification';
 import { AddTransactionModal } from '../components/AddTransactionModal';
 import { SellerDetailSkeleton } from '../components/Shimmer';
 
+import { useSellerDetailQuery } from '../query/useQueries';
+import { invalidateTransactions } from '../query/queryClient';
+
 export const SellerDetailScreen = ({ route, navigation }: any) => {
   const { colors } = useTheme();
   const sellerId = route?.params?.sellerId;
   const routeSeller = route?.params?.seller;
 
-  const [loading, setLoading] = useState(!routeSeller);
-  const [refreshing, setRefreshing] = useState(false);
-  const [seller, setSeller] = useState<Seller | null>(() => routeSeller || null);
-  const [stats, setStats] = useState<any>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const {
+    seller: querySeller,
+    stats: queryStats,
+    transactions: queryTransactions,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useSellerDetailQuery(sellerId);
+
+  const seller = querySeller || routeSeller || null;
+  const stats = queryStats || null;
+  const transactions = queryTransactions || [];
+
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [receiptVisible, setReceiptVisible] = useState(false);
   const [filterType, setFilterType] = useState<'ALL' | 'DELIVERY' | 'PAYMENT'>('ALL');
@@ -52,38 +63,8 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
     }
   }, [route?.params?.successMsg]);
 
-  const sellerRef = useRef<Seller | null>(null);
-  sellerRef.current = seller;
-
-  const fetchDetail = useCallback(async (isRefresh = false) => {
-    if (!sellerId) return;
-    if (isRefresh) {
-      setRefreshing(true);
-    } else if (!sellerRef.current) {
-      setLoading(true);
-    }
-    try {
-      const data = await getSellerByIdApi(sellerId);
-      setSeller(data.seller);
-      setStats(data.stats);
-      setTransactions(data.transactions || []);
-    } catch (err) {
-      console.warn('Failed to load seller detail:', err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [sellerId]);
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchDetail();
-    }, [fetchDetail])
-  );
-
   const onRefresh = () => {
-    setRefreshing(true);
-    fetchDetail();
+    refetch();
   };
 
   const fmtCurrency = (val: number) => {
@@ -107,9 +88,9 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
 
   const sellerTitle = seller?.name || route?.params?.sellerName || 'Vendor Details';
 
-  if (loading && !seller) {
+  if (isLoading && !seller) {
     return (
-      <AnimatedScreenWrapper style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
+      <AnimatedScreenWrapper direction="right" style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
         <NavbarHeader
           currentScreenTitle={sellerTitle}
           onOpenDrawer={() => navigation.goBack()}
@@ -122,7 +103,7 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
 
   if (!seller) {
     return (
-      <AnimatedScreenWrapper style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
+      <AnimatedScreenWrapper direction="right" style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
         <NavbarHeader
           currentScreenTitle="Vendor Not Found"
           onOpenDrawer={() => navigation.goBack()}
@@ -144,7 +125,13 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
   });
 
   return (
-    <AnimatedScreenWrapper style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
+    <AnimatedScreenWrapper direction="right" style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
+      <ReceiptModal
+        visible={receiptVisible}
+        onClose={() => setReceiptVisible(false)}
+        transaction={selectedTx}
+      />
+
       <NavbarHeader
         currentScreenTitle={seller.name}
         onOpenDrawer={() => navigation.goBack()}
@@ -153,7 +140,7 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
 
       <ScrollView
         style={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accentHover} />}
+        refreshControl={<RefreshControl refreshing={isFetching} onRefresh={onRefresh} tintColor={colors.accentHover} />}
       >
         {/* Vendor Header Card */}
         <View style={[styles.profileCard, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
@@ -227,7 +214,7 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
           </View>
         </View>
 
-        {/* Ledger Summary Cards */}
+        {/* Financial Summary Cards */}
         <View style={styles.statsRow}>
           <View style={[styles.statBox, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
             <Text style={[styles.statLabel, { color: colors.textMuted }]}>TOTAL BILLED</Text>
@@ -261,9 +248,9 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
           </View>
         </View>
 
-        {/* Transaction Ledger */}
+        {/* Transaction History */}
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Ledger History</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Transaction History</Text>
           <View style={styles.filterTabs}>
             {(['ALL', 'DELIVERY', 'PAYMENT'] as const).map((t) => (
               <TouchableOpacity
@@ -532,8 +519,9 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
         initialType={txType}
         initialDeliveryId={preselectedDeliveryId}
         deliveries={transactions}
-        onSuccess={(_tx) => {
-          fetchDetail();
+        onSuccess={async (_tx) => {
+          await invalidateTransactions(sellerId);
+          refetch();
         }}
       />
 

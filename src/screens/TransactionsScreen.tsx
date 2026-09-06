@@ -25,16 +25,33 @@ import { AnimatedScreenWrapper } from '../components/AnimatedScreenWrapper';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { TransactionCardSkeleton } from '../components/Shimmer';
+import { queryClient, QUERY_KEYS, invalidateTransactions } from '../query/queryClient';
 
-export const TransactionsScreen = ({ route, navigation }: any) => {
+interface TransactionsScreenProps {
+  route?: any;
+  navigation: any;
+  isEmbedded?: boolean;
+}
+
+export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({ route, navigation, isEmbedded = false }) => {
   const sellerId = route?.params?.sellerId;
   const { colors } = useTheme();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filterType, setFilterType] = useState<'ALL' | 'DELIVERY' | 'PAYMENT'>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(true);
+
+  const cacheKey = QUERY_KEYS.transactions({
+    sellerId,
+    type: filterType === 'ALL' ? undefined : filterType,
+    search: searchQuery.trim() || undefined,
+    page: 1,
+    limit: 20,
+  });
+  const cachedInitial = queryClient.getQueryData<any>(cacheKey);
+
+  const [transactions, setTransactions] = useState<Transaction[]>(() => cachedInitial?.transactions || []);
+  const [loading, setLoading] = useState<boolean>(() => !cachedInitial?.transactions?.length);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [page, setPage] = useState<number>(1);
@@ -48,77 +65,119 @@ export const TransactionsScreen = ({ route, navigation }: any) => {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [expandedDeliveries, setExpandedDeliveries] = useState<Record<string, boolean>>({});
   const toggleExpand = (id: string) => setExpandedDeliveries((prev) => ({ ...prev, [id]: !prev[id] }));
-  const isInitialMount = useRef(true);
-  const transactionsRef = useRef<Transaction[]>([]);
+  const transactionsRef = useRef<Transaction[]>(transactions);
   transactionsRef.current = transactions;
+  const lastFetchTimeRef = useRef<number>(cachedInitial ? Date.now() : 0);
 
-  const loadData = useCallback(async (targetPage = 1, isRefresh = false) => {
-    if (targetPage > 1) {
-      setLoadingMore(true);
-    } else if (isRefresh) {
-      setRefreshing(true);
-    } else if (transactionsRef.current.length === 0) {
+  const loadData = useCallback(
+    async (
+      targetPage = 1,
+      isRefresh = false,
+      activeFilter: 'ALL' | 'DELIVERY' | 'PAYMENT' = filterType,
+      activeSearch: string = searchQuery
+    ) => {
+      if (targetPage > 1) {
+        setLoadingMore(true);
+      } else if (isRefresh) {
+        setRefreshing(true);
+      } else if (transactionsRef.current.length === 0) {
+        setLoading(true);
+      }
+
+      try {
+        const promises: [Promise<any>, Promise<any>?] = [
+          getTransactionsApi({
+            sellerId,
+            type: activeFilter === 'ALL' ? undefined : activeFilter,
+            search: activeSearch.trim() || undefined,
+            page: targetPage,
+            limit: 20,
+          }),
+        ];
+
+        if (targetPage === 1 && allSellers.length === 0) {
+          promises.push(getSellersApi().catch(() => ({ sellers: [] })));
+        }
+
+        const [res, sellerRes] = await Promise.all(promises);
+        const incoming = res.transactions || [];
+
+        if (targetPage === 1) {
+          const currentKey = QUERY_KEYS.transactions({
+            sellerId,
+            type: activeFilter === 'ALL' ? undefined : activeFilter,
+            search: activeSearch.trim() || undefined,
+            page: 1,
+            limit: 20,
+          });
+          queryClient.setQueryData(currentKey, res);
+          lastFetchTimeRef.current = Date.now();
+        }
+
+        setTransactions((prev) => {
+          if (targetPage === 1) {
+            return incoming;
+          }
+          const existingIds = new Set(prev.map((t) => t._id || t.id));
+          const uniqueIncoming = incoming.filter((t: any) => !existingIds.has(t._id || t.id));
+          return [...prev, ...uniqueIncoming];
+        });
+
+        if (sellerRes?.sellers) {
+          setAllSellers(sellerRes.sellers);
+        }
+
+        setPage(targetPage);
+        const nextAvailable = res.pagination?.hasNextPage ?? incoming.length === 20;
+        setHasMore(nextAvailable);
+      } catch (e) {
+        console.warn('Error loading transactions:', e);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+        setLoadingMore(false);
+      }
+    },
+    [sellerId, filterType, searchQuery, allSellers.length]
+  );
+
+  const handleFilterChange = (t: 'ALL' | 'DELIVERY' | 'PAYMENT') => {
+    if (t === filterType) return;
+    setFilterType(t);
+    const currentKey = QUERY_KEYS.transactions({
+      sellerId,
+      type: t === 'ALL' ? undefined : t,
+      search: searchQuery.trim() || undefined,
+      page: 1,
+      limit: 20,
+    });
+    const cached = queryClient.getQueryData<any>(currentKey);
+    if (cached?.transactions) {
+      setTransactions(cached.transactions);
+      setLoading(false);
+    } else {
+      setTransactions([]);
       setLoading(true);
     }
+    loadData(1, false, t, searchQuery);
+  };
 
-    try {
-      const promises: [Promise<any>, Promise<any>?] = [
-        getTransactionsApi({
-          sellerId,
-          type: filterType === 'ALL' ? undefined : filterType,
-          search: searchQuery.trim() || undefined,
-          page: targetPage,
-          limit: 20,
-        }),
-      ];
-
-      if (targetPage === 1 && allSellers.length === 0) {
-        promises.push(getSellersApi().catch(() => ({ sellers: [] })));
-      }
-
-      const [res, sellerRes] = await Promise.all(promises);
-      const incoming = res.transactions || [];
-
-      setTransactions((prev) => {
-        if (targetPage === 1) {
-          return incoming;
-        }
-        const existingIds = new Set(prev.map((t) => t._id || t.id));
-        const uniqueIncoming = incoming.filter((t: any) => !existingIds.has(t._id || t.id));
-        return [...prev, ...uniqueIncoming];
-      });
-
-      if (sellerRes?.sellers) {
-        setAllSellers(sellerRes.sellers);
-      }
-
-      setPage(targetPage);
-      const nextAvailable = res.pagination?.hasNextPage ?? (incoming.length === 20);
-      setHasMore(nextAvailable);
-    } catch (e) {
-      console.warn('Error loading transactions:', e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-      setLoadingMore(false);
-    }
-  }, [sellerId, filterType, searchQuery, allSellers.length]);
-
-  // Handle filter or search changes
+  // Handle search changes
   useEffect(() => {
-    if (!isInitialMount.current) {
-      loadData(1);
-    }
-  }, [filterType, searchQuery]);
+    loadData(1, false, filterType, searchQuery);
+  }, [searchQuery]);
 
   useFocusEffect(
     useCallback(() => {
-      loadData(1);
-    }, [loadData])
+      const isStale = Date.now() - lastFetchTimeRef.current > 1000 * 60 * 2;
+      if (transactionsRef.current.length === 0 || isStale) {
+        loadData(1, false, filterType, searchQuery);
+      }
+    }, [loadData, filterType, searchQuery])
   );
 
   const onRefresh = () => {
-    loadData(1, true);
+    loadData(1, true, filterType, searchQuery);
   };
 
   const handleLoadMore = () => {
@@ -140,24 +199,34 @@ export const TransactionsScreen = ({ route, navigation }: any) => {
   };
 
   return (
-    <AnimatedScreenWrapper style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
-      <NavbarHeader
-        currentScreenTitle="Transactions Feed"
-        isRootScreen={true}
-        onOpenDrawer={() => setDrawerOpen(true)}
-        navigation={navigation}
-      />
-      <DrawerSidebar
-        visible={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        navigation={navigation}
-        activeScreen="Transactions"
-      />
+    <AnimatedScreenWrapper
+      style={[
+        styles.container,
+        { backgroundColor: colors.bgPrimary },
+        isEmbedded && { paddingHorizontal: 0, paddingTop: 0 },
+      ]}
+    >
+      {!isEmbedded && (
+        <NavbarHeader
+          currentScreenTitle="Transactions Feed"
+          isRootScreen={true}
+          onOpenDrawer={() => setDrawerOpen(true)}
+          navigation={navigation}
+        />
+      )}
+      {!isEmbedded && (
+        <DrawerSidebar
+          visible={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          navigation={navigation}
+          activeScreen="Transactions"
+        />
+      )}
 
       {/* Title & Quick Actions */}
       <View style={styles.headerRow}>
         <View style={styles.titleGroup}>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>Transaction Ledger</Text>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>Transactions Feed</Text>
           <View style={styles.countBadge}>
             <Text style={styles.countText}>{transactions.length} Records</Text>
           </View>
@@ -212,7 +281,7 @@ export const TransactionsScreen = ({ route, navigation }: any) => {
               { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle },
               filterType === t ? styles.filterTabActive : null,
             ]}
-            onPress={() => setFilterType(t)}
+            onPress={() => handleFilterChange(t)}
           >
             <Text
               style={[
@@ -464,7 +533,8 @@ export const TransactionsScreen = ({ route, navigation }: any) => {
         onClose={() => setCreateTxVisible(false)}
         sellers={allSellers}
         initialType={createTxType}
-        onSuccess={(_tx) => {
+        onSuccess={async (_tx) => {
+          await invalidateTransactions();
           loadData(1, true);
         }}
       />
@@ -477,7 +547,7 @@ export const TransactionsScreen = ({ route, navigation }: any) => {
       />
 
       {/* Native App Bottom Tab Bar */}
-      <BottomTabBar activeScreen="Transactions" navigation={navigation} />
+      {!isEmbedded && <BottomTabBar activeScreen="Transactions" navigation={navigation} />}
     </AnimatedScreenWrapper>
   );
 };

@@ -1,4 +1,5 @@
-import apiClient from './client';
+import apiClient, { resolveBaseUrl, getAuthToken } from './client';
+import { File, Paths } from 'expo-file-system';
 import { ApiResponse, Transaction, PaginationInfo, ServerReceipt } from '../types';
 
 export interface GetTransactionsResponse {
@@ -53,6 +54,17 @@ export const getTransactionReceiptApi = async (transactionId: string): Promise<S
     return response.data.data;
   }
   throw new Error(response.data?.message || 'Failed to load official receipt');
+};
+
+export const downloadReceiptPdfApi = async (transactionId: string): Promise<string> => {
+  const baseUrl = resolveBaseUrl().replace(/\/+$/, '');
+  const token = getAuthToken();
+  const pdfUrl = `${baseUrl}/transactions/${transactionId}/receipt/pdf?token=${encodeURIComponent(token || '')}`;
+  const receiptNo = `RCP-${transactionId.slice(-8).toUpperCase()}`;
+
+  const destination = new File(Paths.cache, `Receipt-${receiptNo}.pdf`);
+  const downloadedFile = await File.downloadFileAsync(pdfUrl, destination);
+  return downloadedFile.uri;
 };
 
 export const createTransactionApi = async (data: {

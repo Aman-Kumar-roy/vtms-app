@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { getSellersApi } from '../api/seller';
 import { createPaymentApi, getTransactionsApi } from '../api/transaction';
+import { invalidateTransactions } from '../query/queryClient';
 import { Seller, Transaction } from '../types';
 import { NavbarHeader } from '../components/NavbarHeader';
 import { ReceiptModal } from '../components/ReceiptModal';
@@ -127,6 +128,7 @@ export const PaymentFormScreen = ({ route, navigation }: any) => {
         parentId: parentId ? parentId : undefined,
       });
 
+      await invalidateTransactions(selectedSeller?._id || selectedSeller?.id);
       setCreatedTransaction(tx);
       setShowReceiptModal(true);
     } catch (e: any) {
@@ -191,7 +193,7 @@ export const PaymentFormScreen = ({ route, navigation }: any) => {
           </View>
           <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Vendor Account Required</Text>
           <Text style={[styles.emptyDesc, { color: colors.textMuted }]}>
-            Payment settlements must be recorded against a specific vendor's account ledger. Please select a vendor from the directory to proceed.
+            Payment settlements must be recorded against a specific vendor's account. Please select a vendor from the directory to proceed.
           </Text>
           <TouchableOpacity
             style={[styles.primaryActionBtn, { backgroundColor: '#10b981' }]}

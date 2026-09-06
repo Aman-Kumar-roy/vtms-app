@@ -261,7 +261,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                     {type === 'DELIVERY' ? 'Record Delivery' : 'Record Payment'}
                   </Text>
                   <Text style={[styles.modalSubtitle, { color: colors.textMuted }]}>
-                    {activeSeller ? activeSeller.name : 'Vendor Ledger Operation'}
+                    {activeSeller ? activeSeller.name : 'Record Transaction'}
                   </Text>
                 </View>
               </View>
