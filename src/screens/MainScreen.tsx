@@ -139,7 +139,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ route, navigation }) => 
             },
           ]}
         >
-          <DashboardScreen navigation={customNavigation} isEmbedded={true} route={{ params: tabParams }} />
+          <DashboardScreen navigation={customNavigation} isEmbedded={true} isActive={activeTab === 'Dashboard'} route={{ params: tabParams }} />
         </Animated.View>
 
         <Animated.View
@@ -152,7 +152,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ route, navigation }) => 
             },
           ]}
         >
-          <SellersScreen navigation={customNavigation} isEmbedded={true} route={{ params: tabParams }} />
+          <SellersScreen navigation={customNavigation} isEmbedded={true} isActive={activeTab === 'Sellers'} route={{ params: tabParams }} />
         </Animated.View>
 
         <Animated.View
@@ -165,7 +165,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ route, navigation }) => 
             },
           ]}
         >
-          <ReportsScreen navigation={customNavigation} isEmbedded={true} route={{ params: tabParams }} />
+          <ReportsScreen navigation={customNavigation} isEmbedded={true} isActive={activeTab === 'Reports'} route={{ params: tabParams }} />
         </Animated.View>
 
         <Animated.View
@@ -178,7 +178,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ route, navigation }) => 
             },
           ]}
         >
-          <ReceiptsScreen navigation={customNavigation} isEmbedded={true} route={{ params: tabParams }} />
+          <ReceiptsScreen navigation={customNavigation} isEmbedded={true} isActive={activeTab === 'Receipts'} route={{ params: tabParams }} />
         </Animated.View>
 
         <Animated.View
@@ -191,7 +191,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ route, navigation }) => 
             },
           ]}
         >
-          <OrdersScreen navigation={customNavigation} isEmbedded={true} route={{ params: tabParams }} />
+          <OrdersScreen navigation={customNavigation} isEmbedded={true} isActive={activeTab === 'Orders'} route={{ params: tabParams }} />
         </Animated.View>
       </View>
 

@@ -46,51 +46,51 @@ export const QUERY_KEYS = {
 
 export const invalidateSellers = async () => {
   await Promise.all([
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sellersRoot }),
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.summaryReport }),
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sellersRoot, refetchType: 'all' }),
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.summaryReport, refetchType: 'all' }),
   ]);
 };
 
 export const invalidateSellerDetail = async (sellerId: string) => {
   await Promise.all([
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sellerDetailRoot(sellerId) }),
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sellersRoot }),
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.summaryReport }),
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sellerDetailRoot(sellerId), refetchType: 'all' }),
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sellersRoot, refetchType: 'all' }),
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.summaryReport, refetchType: 'all' }),
   ]);
 };
 
 export const invalidateTransactions = async (sellerId?: string) => {
   const promises: Promise<any>[] = [
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactionsRoot }),
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.receiptsRoot }),
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.summaryReport }),
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tankReportRoot }),
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sellersRoot }),
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactionsRoot, refetchType: 'all' }),
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.receiptsRoot, refetchType: 'all' }),
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.summaryReport, refetchType: 'all' }),
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tankReportRoot, refetchType: 'all' }),
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sellersRoot, refetchType: 'all' }),
   ];
   if (sellerId) {
-    promises.push(queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sellerDetailRoot(sellerId) }));
+    promises.push(queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sellerDetailRoot(sellerId), refetchType: 'all' }));
   }
   await Promise.all(promises);
 };
 
 export const invalidateDashboard = async () => {
   await Promise.all([
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.summaryReport }),
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sellersRoot }),
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.summaryReport, refetchType: 'all' }),
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sellersRoot, refetchType: 'all' }),
   ]);
 };
 
 export const invalidateReports = async () => {
   await Promise.all([
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.summaryReport }),
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tankReportRoot }),
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.summaryReport, refetchType: 'all' }),
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tankReportRoot, refetchType: 'all' }),
   ]);
 };
 
 export const invalidateReceipts = async () => {
   await Promise.all([
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.receiptsRoot }),
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactionsRoot }),
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.receiptsRoot, refetchType: 'all' }),
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactionsRoot, refetchType: 'all' }),
   ]);
 };
 

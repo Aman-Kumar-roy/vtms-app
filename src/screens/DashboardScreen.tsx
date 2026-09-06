@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Seller } from '../types';
@@ -24,14 +25,16 @@ import { AnimatedScreenWrapper } from '../components/AnimatedScreenWrapper';
 import { DashboardSkeleton } from '../components/Shimmer';
 import { useDashboardQuery } from '../query/useQueries';
 import { invalidateDashboard, invalidateTransactions } from '../query/queryClient';
+import { useFocusEffect } from '@react-navigation/native';
 
 interface DashboardScreenProps {
   navigation: any;
   route?: any;
   isEmbedded?: boolean;
+  isActive?: boolean;
 }
 
-export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, isEmbedded = false }) => {
+export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, isEmbedded = false, isActive = true }) => {
   const { colors } = useTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -42,11 +45,39 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, is
   const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
+  const [isPullRefreshing, setIsPullRefreshing] = useState(false);
+
   // React Query Caching Layer with Stale-While-Revalidate
   const { report, sellers, isLoading, isFetching, isError, error, refetch } = useDashboardQuery();
 
-  const onRefresh = () => {
-    refetch();
+  // Revalidate only when tab transitions from inactive to active
+  const prevActiveRef = useRef(isActive);
+  useEffect(() => {
+    if (isActive && !prevActiveRef.current) {
+      refetch();
+    }
+    prevActiveRef.current = isActive;
+  }, [isActive, refetch]);
+
+  // Revalidate on screen focus (skip initial mount to prevent duplicate fetch)
+  const isFirstMountRef = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstMountRef.current) {
+        isFirstMountRef.current = false;
+        return;
+      }
+      refetch();
+    }, [refetch])
+  );
+
+  const onRefresh = async () => {
+    setIsPullRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setIsPullRefreshing(false);
+    }
   };
 
   const fmtCurrency = (val: number) => {
@@ -84,7 +115,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, is
 
       <ScrollView
         style={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={isFetching} onRefresh={onRefresh} tintColor={colors.accentHover} />}
+        refreshControl={<RefreshControl refreshing={isPullRefreshing} onRefresh={onRefresh} tintColor={colors.accentHover} />}
       >
         {isLoading && !report && sellers.length === 0 ? (
           <DashboardSkeleton />

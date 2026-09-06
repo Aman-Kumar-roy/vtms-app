@@ -17,6 +17,7 @@ import { Seller, Transaction } from '../types';
 import { TankSelector } from '../components/TankSelector';
 import { NavbarHeader } from '../components/NavbarHeader';
 import { ReceiptModal } from '../components/ReceiptModal';
+import { DatePickerField } from '../components/ui/DatePickerField';
 import { useTheme } from '../context/ThemeContext';
 import { AnimatedScreenWrapper } from '../components/AnimatedScreenWrapper';
 
@@ -88,10 +89,6 @@ export const DeliveryFormScreen = ({ route, navigation }: any) => {
 
     if (!date.trim()) {
       errs.date = 'Delivery date is required';
-    }
-
-    if (totalUnits === 0) {
-      errs.tanks = 'Please specify quantity for at least one tank item (500L, 1000L, 2000L)';
     }
 
     setErrors(errs);
@@ -268,26 +265,17 @@ export const DeliveryFormScreen = ({ route, navigation }: any) => {
           </View>
 
           {/* 4. Date */}
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: colors.textMuted }]}>
-              DELIVERY DATE (YYYY-MM-DD) <Text style={styles.reqStar}>*</Text>
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: colors.bgSecondary, borderColor: colors.borderSubtle, color: colors.textPrimary },
-                errors.date ? styles.inputError : null,
-              ]}
-              value={date}
-              onChangeText={(val) => {
-                setDate(val);
-                if (errors.date) setErrors((prev) => ({ ...prev, date: '' }));
-              }}
-              placeholder="2026-09-04"
-              placeholderTextColor={colors.textMuted}
-            />
-            {errors.date ? <Text style={styles.errorText}>{errors.date}</Text> : null}
-          </View>
+          <DatePickerField
+            label="DELIVERY DATE"
+            value={date}
+            onChange={(val) => {
+              setDate(val);
+              if (errors.date) setErrors((prev) => ({ ...prev, date: '' }));
+            }}
+            error={errors.date}
+            required
+            inputBackground={colors.bgSecondary}
+          />
 
           {/* 5. Dispatch / Delivery Note */}
           <View style={styles.field}>

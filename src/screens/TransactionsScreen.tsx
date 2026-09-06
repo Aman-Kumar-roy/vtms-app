@@ -85,14 +85,35 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({ route, n
       }
 
       try {
+        const currentKey = QUERY_KEYS.transactions({
+          sellerId,
+          type: activeFilter === 'ALL' ? undefined : activeFilter,
+          search: activeSearch.trim() || undefined,
+          page: targetPage,
+          limit: 20,
+        });
+
         const promises: [Promise<any>, Promise<any>?] = [
-          getTransactionsApi({
-            sellerId,
-            type: activeFilter === 'ALL' ? undefined : activeFilter,
-            search: activeSearch.trim() || undefined,
-            page: targetPage,
-            limit: 20,
-          }),
+          targetPage === 1
+            ? queryClient.fetchQuery({
+                queryKey: currentKey,
+                queryFn: () =>
+                  getTransactionsApi({
+                    sellerId,
+                    type: activeFilter === 'ALL' ? undefined : activeFilter,
+                    search: activeSearch.trim() || undefined,
+                    page: 1,
+                    limit: 20,
+                  }),
+                staleTime: 60 * 1000,
+              })
+            : getTransactionsApi({
+                sellerId,
+                type: activeFilter === 'ALL' ? undefined : activeFilter,
+                search: activeSearch.trim() || undefined,
+                page: targetPage,
+                limit: 20,
+              }),
         ];
 
         if (targetPage === 1 && allSellers.length === 0) {
@@ -103,14 +124,6 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({ route, n
         const incoming = res.transactions || [];
 
         if (targetPage === 1) {
-          const currentKey = QUERY_KEYS.transactions({
-            sellerId,
-            type: activeFilter === 'ALL' ? undefined : activeFilter,
-            search: activeSearch.trim() || undefined,
-            page: 1,
-            limit: 20,
-          });
-          queryClient.setQueryData(currentKey, res);
           lastFetchTimeRef.current = Date.now();
         }
 
@@ -167,12 +180,10 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({ route, n
     loadData(1, false, filterType, searchQuery);
   }, [searchQuery]);
 
+  // Revalidate transactions on screen focus
   useFocusEffect(
     useCallback(() => {
-      const isStale = Date.now() - lastFetchTimeRef.current > 1000 * 60 * 2;
-      if (transactionsRef.current.length === 0 || isStale) {
-        loadData(1, false, filterType, searchQuery);
-      }
+      loadData(1, false, filterType, searchQuery);
     }, [loadData, filterType, searchQuery])
   );
 

@@ -52,6 +52,7 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
   const [txType, setTxType] = useState<'DELIVERY' | 'PAYMENT'>('DELIVERY');
   const [preselectedDeliveryId, setPreselectedDeliveryId] = useState<string | undefined>(undefined);
   const [expandedDeliveries, setExpandedDeliveries] = useState<Record<string, boolean>>({});
+  const [isPullRefreshing, setIsPullRefreshing] = useState(false);
 
   const toggleExpand = (id: string) => {
     setExpandedDeliveries((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -63,8 +64,25 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
     }
   }, [route?.params?.successMsg]);
 
-  const onRefresh = () => {
-    refetch();
+  // Revalidate vendor stats and transactions whenever screen gains focus (skipping initial mount)
+  const isFirstMountRef = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstMountRef.current) {
+        isFirstMountRef.current = false;
+        return;
+      }
+      refetch();
+    }, [refetch])
+  );
+
+  const onRefresh = async () => {
+    setIsPullRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setIsPullRefreshing(false);
+    }
   };
 
   const fmtCurrency = (val: number) => {
@@ -140,7 +158,7 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
 
       <ScrollView
         style={styles.scroll}
-        refreshControl={<RefreshControl refreshing={isFetching} onRefresh={onRefresh} tintColor={colors.accentHover} />}
+        refreshControl={<RefreshControl refreshing={isPullRefreshing} onRefresh={onRefresh} tintColor={colors.accentHover} />}
       >
         {/* Vendor Header Card */}
         <View style={[styles.profileCard, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>

@@ -54,3 +54,12 @@
    - Display dark-themed Shimmer Skeletons ([`Shimmer.tsx`](file:///d:/vasudha-polymer/app/src/components/Shimmer.tsx)) strictly on cold cache loads (`isLoading && !data`). For warm cache hits, show cached data instantly without flicker while background revalidation occurs.
    - Call `clearAllQueryCache()` upon session logout in [`AuthContext.tsx`](file:///d:/vasudha-polymer/app/src/context/AuthContext.tsx) to isolate user data.
    - Configure `app.json` with `"userInterfaceStyle": "dark"` and `"backgroundColor": "#080d1a"` to ensure seamless transitions without white edge flashes.
+
+9. **Interactive Calendar Date Picker & Form Parity**:
+   - Transaction inputs must use [`DatePickerField.tsx`](file:///d:/vasudha-polymer/app/src/components/ui/DatePickerField.tsx) featuring full calendar navigation, `overFullScreen` presentation modal, backdrop dismissal, and today / yesterday quick-select buttons.
+
+10. **Top Laser Beam Fetching Progress Bar**:
+    - Revalidation across mobile screens routes through `queryClient.fetchQuery` / `useQuery` to drive [`NavigationProgressBar.tsx`](file:///d:/vasudha-polymer/app/src/components/NavigationProgressBar.tsx) during background syncs while keeping pull-to-refresh spinners exclusively bound to user pull gestures.
+
+11. **Server Receipt Synchronization & Hot Environment Resolution**:
+    - Mobile receipt preview in [`ReceiptModal.tsx`](file:///d:/vasudha-polymer/app/src/components/ReceiptModal.tsx) fetches live server-rendered metadata from `/api/v1/transactions/:id/receipt` ensuring 100% branding, GSTIN, and voucher consistency with the canonical downloaded vector PDF.

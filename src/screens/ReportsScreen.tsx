@@ -104,7 +104,7 @@ type SortKey = 'totalOrders' | 'sellerName' | 'total500' | 'total1000' | 'total2
 import { ReportsSkeleton } from '../components/Shimmer';
 import { queryClient, QUERY_KEYS } from '../query/queryClient';
 
-export const ReportsScreen = ({ navigation, isEmbedded }: any) => {
+export const ReportsScreen = ({ navigation, isEmbedded = false, isActive = true }: any) => {
   const { colors } = useTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -132,7 +132,6 @@ export const ReportsScreen = ({ navigation, isEmbedded }: any) => {
 
   const [tankReport, setTankReport] = useState<TankReportResponse | null>(() => initialCached || null);
   const [loading, setLoading] = useState<boolean>(() => !initialCached);
-  const [reportLoading, setReportLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
   const [search, setSearch] = useState<string>('');
@@ -154,25 +153,27 @@ export const ReportsScreen = ({ navigation, isEmbedded }: any) => {
     } else if (cached) {
       setTankReport(cached);
       setLoading(false);
-      setReportLoading(true); // background revalidation
     } else {
       setLoading(true);
-      setReportLoading(true);
     }
 
     try {
-      const data = await getTankSummaryReportApi(params);
-      const formatted: TankReportResponse = {
-        ...data,
-        period: range.label,
-      };
-      queryClient.setQueryData(queryKey, formatted);
+      const formatted = await queryClient.fetchQuery({
+        queryKey,
+        queryFn: async () => {
+          const data = await getTankSummaryReportApi(params);
+          return {
+            ...data,
+            period: range.label,
+          };
+        },
+        staleTime: 60 * 1000,
+      });
       setTankReport(formatted);
     } catch (e) {
       console.warn('Failed to load tank report:', e);
     } finally {
       setLoading(false);
-      setReportLoading(false);
       setRefreshing(false);
     }
   }, []);
@@ -182,12 +183,26 @@ export const ReportsScreen = ({ navigation, isEmbedded }: any) => {
     loadTankReport(activePreset);
   }, [activePreset, loadTankReport]);
 
-  // Revalidate on screen focus
+  // Revalidate on screen focus (skip initial mount to avoid duplicate fetch)
+  const isFirstMountRef = useRef(true);
   useFocusEffect(
     useCallback(() => {
+      if (isFirstMountRef.current) {
+        isFirstMountRef.current = false;
+        return;
+      }
       loadTankReport(activePreset);
     }, [activePreset, loadTankReport])
   );
+
+  // Revalidate only when tab transitions from inactive to active
+  const prevActiveRef = useRef(isActive);
+  useEffect(() => {
+    if (isActive && !prevActiveRef.current) {
+      loadTankReport(activePreset);
+    }
+    prevActiveRef.current = isActive;
+  }, [isActive, activePreset, loadTankReport]);
 
   const onRefresh = () => {
     loadTankReport(activePreset, true);
@@ -330,7 +345,6 @@ export const ReportsScreen = ({ navigation, isEmbedded }: any) => {
                 {tankReport?.period || activePreset.getRange().label}
               </Text>
             </View>
-            {reportLoading && <ActivityIndicator size="small" color={colors.accentHover} />}
           </View>
 
           <View style={styles.periodDivider} />
@@ -457,7 +471,7 @@ export const ReportsScreen = ({ navigation, isEmbedded }: any) => {
           </Text>
         </View>
 
-        {reportLoading && sortedAndFilteredRows.length === 0 ? (
+        {loading && sortedAndFilteredRows.length === 0 ? (
           <View style={[styles.card, styles.centerCard, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
             <ActivityIndicator size="small" color={colors.accentHover} />
             <Text style={[styles.emptySubtitle, { color: colors.textMuted, marginTop: 8 }]}>

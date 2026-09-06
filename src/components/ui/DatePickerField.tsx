@@ -16,6 +16,7 @@ interface DatePickerFieldProps {
   onChange: (date: string) => void;
   error?: string | null;
   required?: boolean;
+  inputBackground?: string;
 }
 
 const MONTH_NAMES = [
@@ -46,6 +47,7 @@ export const DatePickerField: React.FC<DatePickerFieldProps> = ({
   onChange,
   error,
   required = true,
+  inputBackground,
 }) => {
   const { colors } = useTheme();
   const [modalVisible, setModalVisible] = useState(false);
@@ -129,7 +131,7 @@ export const DatePickerField: React.FC<DatePickerFieldProps> = ({
         style={[
           styles.triggerBtn,
           {
-            backgroundColor: colors.bgCard,
+            backgroundColor: inputBackground || colors.bgCard,
             borderColor: error ? '#ef4444' : colors.borderSubtle,
           },
         ]}
@@ -157,6 +159,7 @@ export const DatePickerField: React.FC<DatePickerFieldProps> = ({
         transparent
         animationType="fade"
         statusBarTranslucent
+        presentationStyle="overFullScreen"
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalBackdrop}>

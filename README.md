@@ -43,8 +43,8 @@ The mobile application consumes the **identical server-generated vector PDF** as
 2. **`DashboardScreen`**: Command Center Hero Banner, top vendor highlight, active vendor metrics, and unit distribution charts.
 3. **`SellersScreen`**: Vendor directory with instant search, filter modes (All, Dues, Settled), ledger metrics, and one-tap "+ Add Vendor" and "+ Delivery" in-context modals.
 4. **`AddSellerModal` / `AddSellerScreen`**: Vendor onboarding with "Require additional fields" switch toggle matching the web app.
-5. **`AddTransactionModal`**: Unified in-context modal for `DELIVERY` (500L, 1000L, 2000L unit steppers) and `PAYMENT` (cash, UPI, cheque, bank transfer) with live calculations and official server receipt voucher generation.
-6. **`DeliveryFormScreen` & `PaymentFormScreen`**: Dedicated fallback screens supporting the same live order summary, validation, and in-context success flow.
+5. **`AddTransactionModal`**: Unified in-context modal for `DELIVERY` (500L, 1000L, 2000L unit steppers) and `PAYMENT` (cash, UPI, cheque, bank transfer) with interactive calendar date picking (`DatePickerField`), live calculations, and official server receipt voucher generation.
+6. **`DeliveryFormScreen` & `PaymentFormScreen`**: Dedicated fallback screens supporting the same interactive calendar date picker, live order summary, validation, and in-context success flow.
 7. **`TransactionsScreen`**: Full transaction ledger with search, type filters, "+ Delivery" & "+ Payment" modals, and one-tap receipt voucher preview.
 8. **`ReceiptsScreen`**: Dedicated voucher ledger for reviewing formal transaction slips.
 9. **`ReportsScreen`**: Business metrics, collection efficiency, vendor leaderboard, and tank distribution.
@@ -56,6 +56,7 @@ The mobile application consumes the **identical server-generated vector PDF** as
  
 - **Centralized Query Client**: Configured in [`src/query/queryClient.ts`](file:///d:/vasudha-polymer/app/src/query/queryClient.ts) using `@tanstack/react-query` with standard 2-minute stale duration, 15-minute garbage collection, and automatic query deduplication.
 - **Stale-While-Revalidate (SWR)**: Screens display cached records instantly on tab switches and screen transitions for zero layout shift, quietly refreshing data in the background.
+- **Top Laser Beam Progress Bar**: Integrated [`NavigationProgressBar.tsx`](file:///d:/vasudha-polymer/app/src/components/NavigationProgressBar.tsx) animated glowing line at the top of the viewport driven by `useIsFetching() > 0`.
 - **Query Hooks (`src/query/useQueries.ts`)**: Modular query hooks (`useDashboardQuery`, `useSellersQuery`, `useSellerDetailQuery`, `useTransactionsQuery`, `useReceiptsQuery`, `useTankReportQuery`) powering screens with built-in loading and fetching states.
 - **Targeted Mutation Invalidation**: When deliveries, payments, or vendors are added or updated, helper functions (`invalidateTransactions`, `invalidateSellers`, `invalidateDashboard`, `invalidateReports`, `invalidateReceipts`) immediately synchronize server and client state.
 - **Dark-Themed Shimmer Skeletons**: [`Shimmer.tsx`](file:///d:/vasudha-polymer/app/src/components/Shimmer.tsx) displays smooth skeleton placeholders (`SellerCardSkeleton`, `TransactionCardSkeleton`, `ReceiptCardSkeleton`, `DashboardSkeleton`, `ReportsSkeleton`, `SellerDetailSkeleton`) strictly on cold cache loads (`isLoading && !data`). Warm cache hits render without delay.

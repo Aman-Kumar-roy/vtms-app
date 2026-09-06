@@ -106,7 +106,20 @@
   - Always invoke `clearAllQueryCache()` upon user logout in [`AuthContext.tsx`](file:///d:/vasudha-polymer/app/src/context/AuthContext.tsx) to completely scrub cached tenant data.
 - **Native Dark Background**: `app.json` enforces `"userInterfaceStyle": "dark"` and `"backgroundColor": "#080d1a"` across Android and iOS to prevent white canvas flashing during slide transitions.
 
-### 9. Commands & Verification
+### 10. Transaction Date Picker & Form Calendar Parity
+- **Dedicated Calendar Field**: All delivery and payment transaction inputs (`AddTransactionModal.tsx`, `DeliveryFormScreen.tsx`, `PaymentFormScreen.tsx`) MUST utilize [`DatePickerField.tsx`](file:///d:/vasudha-polymer/app/src/components/ui/DatePickerField.tsx) instead of raw text inputs.
+- **Modal Nesting Safety**: Configured with `presentationStyle="overFullScreen"`, transparent backdrop, year/month navigation, today / yesterday presets, and custom `inputBackground` to cleanly stack within both modal sheets and standalone screens without layering conflicts.
+
+### 11. Top Progress Bar Animation & Decoupled Pull-to-Refresh
+- **Unified Top Fetching Indicator**: Screen data fetching and background revalidations trigger TanStack React Query (`queryClient.fetchQuery` / `useQuery`) so `useIsFetching() > 0` smoothly displays the top laser beam animation ([`NavigationProgressBar.tsx`](file:///d:/vasudha-polymer/app/src/components/NavigationProgressBar.tsx)).
+- **No Disruptive Inline Spinners**: Inline activity indicator spinners must NOT be displayed inside card headers or report period banners (e.g. next to "All Time History").
+- **Decoupled Pull-to-Refresh**: Native `RefreshControl` spinners are strictly tied to manual user drag gestures via dedicated `isPullRefreshing` state, never to background SWR cache revalidations.
+
+### 12. Dynamic Environment & Clean Base URL Resolution
+- **Dynamic Live Base URL**: [`client.ts`](file:///d:/vasudha-polymer/app/src/api/client.ts) resolves API endpoints using Metro scriptURL host IP (for local dev) or `EXPO_PUBLIC_API_URL` without hardcoded production overrides or string sniffing.
+- **Canonical Server Receipt Metadata**: [`ReceiptModal.tsx`](file:///d:/vasudha-polymer/app/src/components/ReceiptModal.tsx) fetches official metadata from `/api/v1/transactions/:id/receipt` ensuring company branding, GST, address, and phone numbers live-reflect server configuration with 100% parity to the generated PDF.
+
+### 13. Commands & Verification
 - Mobile TypeScript Check: `npx tsc --noEmit`
 - Start Metro Bundler: `npx expo start`
 - Start Web Mode: `npx expo start --web`

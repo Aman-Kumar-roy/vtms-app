@@ -9,6 +9,7 @@ import {
   Platform,
   Image,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Transaction, Seller, ServerReceipt } from '../types';
@@ -25,11 +26,7 @@ interface ReceiptModalProps {
   seller?: Seller | null;
 }
 
-// Company credentials (matching .env & web configuration)
-const COMPANY_NAME = "VASUDHA POLYMER";
-const COMPANY_GST = "07AAAAA0000A1Z5";
-const COMPANY_PHONE = "+91 98765 43210";
-const COMPANY_ADDRESS = "Plot 42, Industrial Zone, New Delhi - 110020";
+
 
 const formatCurrency = (val: number = 0) =>
   '₹ ' + Number(val || 0).toLocaleString('en-IN', {
@@ -79,7 +76,10 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   const [downloadingPdf, setDownloadingPdf] = useState<boolean>(false);
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      setFetchError(null);
+      return;
+    }
 
     if (propReceipt) {
       setReceipt(propReceipt);
@@ -93,11 +93,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       return;
     }
 
+    // Previous transaction without pre-attached receipt: reset and fetch latest official metadata
+    setReceipt(null);
     const txId = transaction?._id || transaction?.id;
     if (txId) {
       setLoading(true);
       setFetchError(null);
-      getTransactionReceiptApi(txId)
+      getTransactionReceiptApi(String(txId))
         .then((data) => {
           setReceipt(data);
         })
@@ -119,6 +121,11 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
   const txDate = receipt?.issueDate || transaction?.date || new Date().toISOString();
   const txAmount = receipt?.transaction.amount ?? transaction?.amount ?? 0;
+
+  const companyName = receipt?.company?.name || '';
+  const companyGst = receipt?.company?.gst || '';
+  const companyPhone = receipt?.company?.phone || '';
+  const companyAddress = receipt?.company?.address || '';
 
   const isFallbackName = (n?: string | null) =>
     !n || n === 'Valued Vendor Partner' || n === 'Valued Vendor' || n === 'Vendor Account' || n === 'Vendor';
@@ -155,11 +162,14 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
   const handleDownloadPdf = async () => {
     const txId = transaction?._id || transaction?.id || receipt?.transaction?.id;
-    if (!txId) return;
+    if (!txId) {
+      Alert.alert('Download Receipt', 'Transaction identifier not found.');
+      return;
+    }
 
     setDownloadingPdf(true);
     try {
-      const uri = await downloadReceiptPdfApi(txId);
+      const uri = await downloadReceiptPdfApi(String(txId));
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
         await Sharing.shareAsync(uri, {
@@ -172,6 +182,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       }
     } catch (err: any) {
       console.warn('PDF download/share error:', err);
+      Alert.alert('Download Receipt', err?.message || 'Unable to download official receipt.');
     } finally {
       setDownloadingPdf(false);
     }
@@ -179,14 +190,18 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
   const handlePrintPdf = async () => {
     const txId = transaction?._id || transaction?.id || receipt?.transaction?.id;
-    if (!txId) return;
+    if (!txId) {
+      Alert.alert('Print Receipt', 'Transaction identifier not found.');
+      return;
+    }
 
     setDownloadingPdf(true);
     try {
-      const uri = await downloadReceiptPdfApi(txId);
+      const uri = await downloadReceiptPdfApi(String(txId));
       await Print.printAsync({ uri });
     } catch (err: any) {
       console.warn('PDF print error:', err);
+      Alert.alert('Print Receipt', err?.message || 'Unable to print official receipt.');
     } finally {
       setDownloadingPdf(false);
     }
@@ -226,12 +241,40 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             </View>
           </View>
 
-          {loading ? (
+          {loading || (!receipt && !fetchError) ? (
             <View style={styles.loadingBox}>
               <ActivityIndicator size="large" color="#0284c7" />
               <Text style={[styles.loadingText, { color: colors.textMuted }]}>
                 Loading official receipt...
               </Text>
+            </View>
+          ) : !receipt && fetchError ? (
+            <View style={[styles.scrollArea, { padding: 24, alignItems: 'center', justifyContent: 'center' }]}>
+              <Ionicons name="alert-circle-outline" size={48} color="#ef4444" style={{ marginBottom: 12 }} />
+              <Text style={{ color: '#ef4444', fontSize: 15, fontWeight: '600', textAlign: 'center', marginBottom: 16 }}>
+                {fetchError}
+              </Text>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: colors.accent,
+                  paddingHorizontal: 20,
+                  paddingVertical: 10,
+                  borderRadius: 8,
+                }}
+                onPress={() => {
+                  const txId = transaction?._id || transaction?.id;
+                  if (txId) {
+                    setLoading(true);
+                    setFetchError(null);
+                    getTransactionReceiptApi(String(txId))
+                      .then((data) => setReceipt(data))
+                      .catch((err) => setFetchError(err.message || 'Could not load official receipt'))
+                      .finally(() => setLoading(false));
+                  }
+                }}
+              >
+                <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Retry</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <ScrollView style={styles.scrollArea} contentContainerStyle={{ paddingBottom: 16 }}>
@@ -255,13 +298,15 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                       />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.brandName}>{COMPANY_NAME}</Text>
-                      <Text style={styles.brandAddress}>{COMPANY_ADDRESS}</Text>
-                      <View style={styles.brandMetaRow}>
-                        <Text style={styles.brandMetaText}>Phone: {COMPANY_PHONE}</Text>
-                        <Text style={styles.brandMetaDot}>•</Text>
-                        <Text style={styles.brandMetaText}>GSTIN: {COMPANY_GST}</Text>
-                      </View>
+                      {companyName ? <Text style={styles.brandName}>{companyName}</Text> : null}
+                      {companyAddress ? <Text style={styles.brandAddress}>{companyAddress}</Text> : null}
+                      {(companyPhone || companyGst) ? (
+                        <View style={styles.brandMetaRow}>
+                          {companyPhone ? <Text style={styles.brandMetaText}>Phone: {companyPhone}</Text> : null}
+                          {companyPhone && companyGst ? <Text style={styles.brandMetaDot}>•</Text> : null}
+                          {companyGst ? <Text style={styles.brandMetaText}>GSTIN: {companyGst}</Text> : null}
+                        </View>
+                      ) : null}
                     </View>
                   </View>
                   <View style={styles.voucherRight}>
@@ -372,14 +417,14 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                     </View>
                     <View style={styles.sigCol}>
                       <View style={styles.sigDashedLine} />
-                      <Text style={styles.sigText}>For {COMPANY_NAME}</Text>
+                      <Text style={styles.sigText}>For {companyName}</Text>
                     </View>
                   </View>
 
                   {/* Footer Note */}
                   <View style={styles.footerBlock}>
                     <Text style={styles.footerNoteText}>
-                      ✓ Official Computer Generated Document • {COMPANY_NAME}
+                      ✓ Official Computer Generated Document • {companyName}
                     </Text>
                     <Text style={styles.footerSubText}>{formatDateTime(new Date().toISOString())}</Text>
                     <Text style={styles.footerThanks}>Thank you for your business!</Text>

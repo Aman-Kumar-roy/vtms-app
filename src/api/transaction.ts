@@ -1,6 +1,8 @@
-import apiClient, { resolveBaseUrl, getAuthToken } from './client';
+import apiClient, { resolveBaseUrl, getAuthToken, setAuthToken } from './client';
 import { File, Paths } from 'expo-file-system';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiResponse, Transaction, PaginationInfo, ServerReceipt } from '../types';
+import { invalidateTransactions } from '../query/queryClient';
 
 export interface GetTransactionsResponse {
   transactions: Transaction[];
@@ -57,14 +59,59 @@ export const getTransactionReceiptApi = async (transactionId: string): Promise<S
 };
 
 export const downloadReceiptPdfApi = async (transactionId: string): Promise<string> => {
-  const baseUrl = resolveBaseUrl().replace(/\/+$/, '');
-  const token = getAuthToken();
-  const pdfUrl = `${baseUrl}/transactions/${transactionId}/receipt/pdf?token=${encodeURIComponent(token || '')}`;
-  const receiptNo = `RCP-${transactionId.slice(-8).toUpperCase()}`;
+  const cleanId = String(transactionId || '').trim();
+  if (!cleanId) {
+    throw new Error('Transaction ID is required to download receipt');
+  }
 
-  const destination = new File(Paths.cache, `Receipt-${receiptNo}.pdf`);
-  const downloadedFile = await File.downloadFileAsync(pdfUrl, destination);
-  return downloadedFile.uri;
+  const baseUrl = resolveBaseUrl().replace(/\/+$/, '');
+  let token = getAuthToken();
+  if (!token) {
+    try {
+      token = await AsyncStorage.getItem('@vtms_auth_token');
+      if (token) {
+        setAuthToken(token);
+      }
+    } catch {}
+  }
+
+  const receiptNo = `RCP-${cleanId.slice(-8).toUpperCase()}`;
+  const pdfUrl = `${baseUrl}/transactions/${cleanId}/receipt/pdf?token=${encodeURIComponent(token || '')}`;
+
+  // Primary Method: Native Expo File with overwrite protection & Bearer authorization
+  try {
+    const destination = new File(Paths.cache, `Receipt-${receiptNo}.pdf`);
+    try {
+      if (destination.exists) {
+        destination.delete();
+      }
+    } catch {}
+
+    const downloadedFile = await File.downloadFileAsync(pdfUrl, destination, {
+      idempotent: true,
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    return downloadedFile.uri;
+  } catch (fileErr: any) {
+    console.warn('[downloadReceiptPdfApi] File.downloadFileAsync failed, attempting buffer fallback:', fileErr?.message || fileErr);
+
+    // Fallback Method: Fetch canonical PDF bytes directly via apiClient and write to local destination
+    const response = await apiClient.get<ArrayBuffer>(`/transactions/${cleanId}/receipt/pdf`, {
+      responseType: 'arraybuffer',
+      params: token ? { token } : undefined,
+    });
+
+    const fallbackFile = new File(Paths.cache, `Receipt-${receiptNo}.pdf`);
+    try {
+      if (fallbackFile.exists) {
+        fallbackFile.delete();
+      }
+    } catch {}
+
+    const uint8 = new Uint8Array(response.data);
+    await fallbackFile.write(uint8);
+    return fallbackFile.uri;
+  }
 };
 
 export const createTransactionApi = async (data: {
@@ -85,6 +132,11 @@ export const createTransactionApi = async (data: {
       const tx = response.data.transaction || response.data.data?.transaction || response.data.data;
       tx.id = tx._id || tx.id;
       tx.receipt = response.data.receipt || response.data.data?.receipt || tx.receipt;
+      try {
+        await invalidateTransactions(data.sellerId);
+      } catch (invalErr) {
+        console.warn('Cache invalidation error after transaction creation:', invalErr);
+      }
       return tx;
     }
     throw new Error(response.data?.message || response.data?.error || 'Failed to create transaction');

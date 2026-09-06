@@ -2,6 +2,8 @@ import axios, { AxiosInstance } from 'axios';
 import { Platform, NativeModules } from 'react-native';
 import Constants from 'expo-constants';
 
+declare const process: any;
+
 const CURRENT_LAN_IP = '10.179.225.217';
 
 const getNativeHostIp = (): string | null => {

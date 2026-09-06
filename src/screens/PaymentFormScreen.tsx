@@ -16,6 +16,7 @@ import { invalidateTransactions } from '../query/queryClient';
 import { Seller, Transaction } from '../types';
 import { NavbarHeader } from '../components/NavbarHeader';
 import { ReceiptModal } from '../components/ReceiptModal';
+import { DatePickerField } from '../components/ui/DatePickerField';
 import { useTheme } from '../context/ThemeContext';
 import { AnimatedScreenWrapper } from '../components/AnimatedScreenWrapper';
 
@@ -438,26 +439,17 @@ export const PaymentFormScreen = ({ route, navigation }: any) => {
           </View>
 
           {/* 4. Date */}
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: colors.textMuted }]}>
-              PAYMENT DATE (YYYY-MM-DD) <Text style={styles.reqStar}>*</Text>
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: colors.bgSecondary, borderColor: colors.borderSubtle, color: colors.textPrimary },
-                errors.date ? styles.inputError : null,
-              ]}
-              value={date}
-              onChangeText={(val) => {
-                setDate(val);
-                if (errors.date) setErrors((prev) => ({ ...prev, date: '' }));
-              }}
-              placeholder="2026-09-04"
-              placeholderTextColor={colors.textMuted}
-            />
-            {errors.date ? <Text style={styles.errorText}>{errors.date}</Text> : null}
-          </View>
+          <DatePickerField
+            label="PAYMENT DATE"
+            value={date}
+            onChange={(val) => {
+              setDate(val);
+              if (errors.date) setErrors((prev) => ({ ...prev, date: '' }));
+            }}
+            error={errors.date}
+            required
+            inputBackground={colors.bgSecondary}
+          />
 
           {/* 5. Note */}
           <View style={styles.field}>

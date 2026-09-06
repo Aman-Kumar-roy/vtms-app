@@ -12,7 +12,7 @@ import { BottomTabBar } from '../components/BottomTabBar';
 import { AnimatedScreenWrapper } from '../components/AnimatedScreenWrapper';
 import { useTheme } from '../context/ThemeContext';
 
-export const OrdersScreen = ({ navigation, isEmbedded }: any) => {
+export const OrdersScreen = ({ navigation, isEmbedded = false, isActive = true }: any) => {
   const { colors } = useTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
 

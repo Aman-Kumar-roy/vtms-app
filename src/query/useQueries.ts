@@ -1,5 +1,6 @@
+import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { QUERY_KEYS } from './queryClient';
+import { QUERY_KEYS, queryClient } from './queryClient';
 import { getSummaryReportApi, getTankSummaryReportApi } from '../api/reports';
 import { getSellersApi, getSellerByIdApi, GetSellersResponse, SellerDetailData } from '../api/seller';
 import { getTransactionsApi, GetTransactionsResponse } from '../api/transaction';
@@ -29,9 +30,12 @@ export const useDashboardQuery = (enabled: boolean = true) => {
   const isError = summaryQuery.isError || sellersQuery.isError;
   const error = summaryQuery.error || sellersQuery.error;
 
-  const refetch = async () => {
-    await Promise.all([summaryQuery.refetch(), sellersQuery.refetch()]);
-  };
+  const refetch = useCallback(async () => {
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.summaryReport }),
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.sellers({ limit: 5 }) }),
+    ]);
+  }, []);
 
   return {
     report: summaryQuery.data || null,

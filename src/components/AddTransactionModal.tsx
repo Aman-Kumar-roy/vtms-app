@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createTransactionApi, getTransactionsApi } from '../api/transaction';
+import { invalidateTransactions } from '../query/queryClient';
 import { Seller, Transaction } from '../types';
 import { TankSelector } from './TankSelector';
 import { ReceiptModal } from './ReceiptModal';
@@ -179,10 +180,6 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       errs.date = 'Transaction date is required';
     }
 
-    if (type === 'DELIVERY' && totalUnits === 0) {
-      errs.tanks = 'Please select quantity for at least one tank item (500L, 1000L, 2000L)';
-    }
-
     setFieldErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
@@ -201,6 +198,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         paymentMode: type === 'PAYMENT' ? paymentMode : undefined,
       });
 
+      await invalidateTransactions(selectedSellerId);
       setCreatedTx(tx);
       setShowReceipt(true);
       onSuccess(tx);
@@ -221,6 +219,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const handleReceiptClose = () => {
     setShowReceipt(false);
     setCreatedTx(null);
+    invalidateTransactions(selectedSellerId);
     onClose();
   };
 
@@ -492,26 +491,17 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                   {fieldErrors.amount ? <Text style={styles.errorText}>{fieldErrors.amount}</Text> : null}
                 </View>
 
-                {/* Date Picker (YYYY-MM-DD input) */}
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: colors.textMuted }]}>
-                    TRANSACTION DATE <Text style={{ color: '#ef4444' }}>*</Text>
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      { backgroundColor: colors.bgCard, color: colors.textPrimary, borderColor: fieldErrors.date ? '#ef4444' : colors.borderSubtle },
-                    ]}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor={colors.textMuted}
-                    value={date}
-                    onChangeText={(val) => {
-                      setDate(val);
-                      if (fieldErrors.date) setFieldErrors((prev) => ({ ...prev, date: '' }));
-                    }}
-                  />
-                  {fieldErrors.date ? <Text style={styles.errorText}>{fieldErrors.date}</Text> : null}
-                </View>
+                {/* Date Picker (Calendar Modal) */}
+                <DatePickerField
+                  label="TRANSACTION DATE"
+                  value={date}
+                  onChange={(val) => {
+                    setDate(val);
+                    if (fieldErrors.date) setFieldErrors((prev) => ({ ...prev, date: '' }));
+                  }}
+                  error={fieldErrors.date}
+                  required
+                />
 
                 {/* Note / Memo */}
                 <View style={styles.inputGroup}>

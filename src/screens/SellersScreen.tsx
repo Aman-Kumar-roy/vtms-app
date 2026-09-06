@@ -30,9 +30,10 @@ interface SellersScreenProps {
   route?: any;
   navigation: any;
   isEmbedded?: boolean;
+  isActive?: boolean;
 }
 
-export const SellersScreen: React.FC<SellersScreenProps> = ({ route, navigation, isEmbedded = false }) => {
+export const SellersScreen: React.FC<SellersScreenProps> = ({ route, navigation, isEmbedded = false, isActive = true }) => {
   const { colors } = useTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -73,12 +74,16 @@ export const SellersScreen: React.FC<SellersScreenProps> = ({ route, navigation,
     }
 
     try {
-      const data = await getSellersApi({ page: targetPage, limit: 50 });
+      const data = targetPage === 1
+        ? await queryClient.fetchQuery({
+            queryKey: QUERY_KEYS.sellers({ page: 1, limit: 50 }),
+            queryFn: () => getSellersApi({ page: 1, limit: 50 }),
+            staleTime: 60 * 1000,
+          })
+        : await getSellersApi({ page: targetPage, limit: 50 });
       const incoming = data.sellers || [];
 
-      // Store page 1 in QueryClient cache
       if (targetPage === 1) {
-        queryClient.setQueryData(QUERY_KEYS.sellers({ page: 1, limit: 50 }), data);
         lastFetchTimeRef.current = Date.now();
       }
       
@@ -107,15 +112,26 @@ export const SellersScreen: React.FC<SellersScreenProps> = ({ route, navigation,
     }
   }, []);
 
-  // Stale-while-revalidate check on focus: only re-fetch if cache is stale (> 5 mins) or list is empty
+  // Background revalidation on screen focus (skip initial mount to avoid duplicate fetch)
+  const isFirstMountRef = useRef(true);
   useFocusEffect(
     useCallback(() => {
-      const isStale = Date.now() - lastFetchTimeRef.current > 1000 * 60 * 5;
-      if (sellersRef.current.length === 0 || isStale) {
-        fetchSellers(1, false);
+      if (isFirstMountRef.current) {
+        isFirstMountRef.current = false;
+        return;
       }
+      fetchSellers(1, false);
     }, [fetchSellers])
   );
+
+  // Background revalidate only when tab transitions from inactive to active
+  const prevActiveRef = useRef(isActive);
+  useEffect(() => {
+    if (isActive && !prevActiveRef.current) {
+      fetchSellers(1, false);
+    }
+    prevActiveRef.current = isActive;
+  }, [isActive, fetchSellers]);
 
   const onRefresh = () => {
     fetchSellers(1, true);

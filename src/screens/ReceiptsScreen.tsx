@@ -24,7 +24,7 @@ import { queryClient, QUERY_KEYS } from '../query/queryClient';
 
 type TypeFilter = 'ALL' | 'DELIVERY' | 'PAYMENT';
 
-export const ReceiptsScreen = ({ navigation, isEmbedded }: any) => {
+export const ReceiptsScreen = ({ navigation, isEmbedded = false, isActive = true }: any) => {
   const { colors } = useTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -79,12 +79,24 @@ export const ReceiptsScreen = ({ navigation, isEmbedded }: any) => {
       }
 
       try {
-        const res = await getTransactionsApi({
-          page: targetPage,
-          limit: 15,
-          search: activeSearch.trim() || undefined,
-          type: activeFilter === 'ALL' ? undefined : activeFilter,
-        });
+        const res = targetPage === 1
+          ? await queryClient.fetchQuery({
+              queryKey,
+              queryFn: () =>
+                getTransactionsApi({
+                  page: 1,
+                  limit: 15,
+                  search: activeSearch.trim() || undefined,
+                  type: activeFilter === 'ALL' ? undefined : activeFilter,
+                }),
+              staleTime: 60 * 1000,
+            })
+          : await getTransactionsApi({
+              page: targetPage,
+              limit: 15,
+              search: activeSearch.trim() || undefined,
+              type: activeFilter === 'ALL' ? undefined : activeFilter,
+            });
 
         const incoming = res.transactions || [];
         if (res.pagination?.total !== undefined) {
@@ -92,7 +104,6 @@ export const ReceiptsScreen = ({ navigation, isEmbedded }: any) => {
         }
 
         if (targetPage === 1) {
-          queryClient.setQueryData(queryKey, res);
           lastFetchTimeRef.current = Date.now();
         }
 
@@ -150,14 +161,26 @@ export const ReceiptsScreen = ({ navigation, isEmbedded }: any) => {
     fetchReceipts(1, false, typeFilter, debouncedSearch);
   }, [debouncedSearch]);
 
+  // Revalidate receipts on screen focus (skip initial mount to avoid duplicate fetch)
+  const isFirstMountRef = useRef(true);
   useFocusEffect(
     useCallback(() => {
-      const isStale = Date.now() - lastFetchTimeRef.current > 1000 * 60 * 2;
-      if (transactionsRef.current.length === 0 || isStale) {
-        fetchReceipts(1, false, typeFilter, debouncedSearch);
+      if (isFirstMountRef.current) {
+        isFirstMountRef.current = false;
+        return;
       }
+      fetchReceipts(1, false, typeFilter, debouncedSearch);
     }, [fetchReceipts, typeFilter, debouncedSearch])
   );
+
+  // Revalidate receipts only when tab transitions from inactive to active
+  const prevActiveRef = useRef(isActive);
+  useEffect(() => {
+    if (isActive && !prevActiveRef.current) {
+      fetchReceipts(1, false, typeFilter, debouncedSearch);
+    }
+    prevActiveRef.current = isActive;
+  }, [isActive, fetchReceipts, typeFilter, debouncedSearch]);
 
   const onRefresh = () => {
     fetchReceipts(1, true, typeFilter, debouncedSearch);
