@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.0.1] - 2026-09-06
+
+### Fixed
+- **Native Launch / Splash Screen Architecture (`expo-splash-screen`)**:
+  - Integrated Expo's official native launch screen controller (`expo-splash-screen`).
+  - Added module-level `SplashScreen.preventAutoHideAsync()` to ensure the native launch screen remains visible during bundle compilation, local storage retrieval, and initial session verification.
+  - Added `isAuthReady` lifecycle gate to `AuthContext`: dynamically holds the native splash screen until authentication state is resolved and then immediately calls `SplashScreen.hideAsync()` without artificial delay.
+  - Completely eliminated initial white screen flashes and premature screen rendering.
+- **Brand Asset & Dark Theme Optimization**:
+  - Re-encoded `splash.png`, `splash-icon.png`, and `adaptive-icon.png` as 32-bit ARGB PNGs with clean alpha transparency around the emblem.
+  - Configured `expo-splash-screen` plugin in `app.json` with centered `imageWidth: 200` and dark background `#080d1a`, ensuring the logo emblem floats centered without distortion, cropping, or white bounding boxes.
+- **Dependency & Build Parity**:
+  - Installed missing `expo-font` peer dependency for `@expo/vector-icons` and aligned `typescript` (~6.0.3) and `expo-file-system` (~57.0.6) with Expo SDK 57.
+  - Verified 18/18 checks passed in `expo-doctor` with 0 issues.
+
+---
+
 ## [v1.0.0] - 2026-09-06
 
 ### Features

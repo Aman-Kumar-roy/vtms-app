@@ -12,6 +12,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
+  isAuthReady: boolean;
   isAdmin: boolean;
   login: (email: string, pass: string) => Promise<void>;
   logout: () => void;
@@ -44,6 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isAuthReady, setIsAuthReady] = useState<boolean>(false);
 
   const logout = useCallback(() => {
     setUser(null);
@@ -66,6 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Attempt auto-login on startup
   useEffect(() => {
+    let isMounted = true;
     const bootstrapAsync = async () => {
       try {
         const savedToken = await getStoredToken();
@@ -74,12 +77,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setToken(savedToken);
           const profile = await getProfileApi();
           profile.id = profile._id || profile.id;
-          setUser(profile);
+          if (isMounted) {
+            setUser(profile);
+          }
         }
       } catch (e) {
         logout();
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+          setIsAuthReady(true);
+        }
       }
     };
 
@@ -88,6 +96,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     bootstrapAsync();
+
+    return () => {
+      isMounted = false;
+    };
   }, [logout]);
 
   const login = async (email: string, pass: string) => {
@@ -116,7 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAdmin = user?.role === 'admin';
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, isAdmin, login, logout, refreshProfile }}>
+    <AuthContext.Provider value={{ user, token, isLoading, isAuthReady, isAdmin, login, logout, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

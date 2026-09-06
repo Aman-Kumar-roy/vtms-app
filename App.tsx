@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -14,6 +15,11 @@ import { AddSellerScreen } from './src/screens/AddSellerScreen';
 import { DeliveryFormScreen } from './src/screens/DeliveryFormScreen';
 import { PaymentFormScreen } from './src/screens/PaymentFormScreen';
 import { SellerDetailScreen } from './src/screens/SellerDetailScreen';
+
+// Prevent the native launch splash screen from auto-hiding before initial auth & app state is ready
+SplashScreen.preventAutoHideAsync().catch(() => {
+  /* Ignore reload race conditions */
+});
 
 const Stack = createNativeStackNavigator();
 
@@ -50,8 +56,20 @@ const OrdersTabScreen = (props: any) => (
 );
 
 const AppNavigator = () => {
-  const { user } = useAuth();
+  const { user, isAuthReady } = useAuth();
   const { colors } = useTheme();
+
+  // Hide the native splash screen as soon as authentication bootstrap is completed and first screen is ready
+  useEffect(() => {
+    if (isAuthReady) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [isAuthReady]);
+
+  // While auth session is restoring, return null to hold the native splash screen smoothly
+  if (!isAuthReady) {
+    return null;
+  }
 
   return (
     <NavigationContainer theme={navTheme}>
