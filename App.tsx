@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import { NavigationContainer, DarkTheme } from '@react-navigation/native';
+import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -22,18 +22,6 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 });
 
 const Stack = createNativeStackNavigator();
-
-const navTheme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    background: '#080d1a',
-    card: '#111e38',
-    text: '#ffffff',
-    border: 'rgba(56, 189, 248, 0.22)',
-    primary: '#0284c7',
-  },
-};
 
 // Aliases for root tab screens ensuring seamless backward compatibility
 const DashboardTabScreen = (props: any) => (
@@ -57,7 +45,19 @@ const OrdersTabScreen = (props: any) => (
 
 const AppNavigator = () => {
   const { user, isAuthReady } = useAuth();
-  const { colors } = useTheme();
+  const { colors, theme } = useTheme();
+
+  const dynamicNavTheme = {
+    ...(theme === 'dark' ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(theme === 'dark' ? DarkTheme.colors : DefaultTheme.colors),
+      background: colors.bgPrimary,
+      card: colors.bgCard,
+      text: colors.textPrimary,
+      border: colors.borderSubtle,
+      primary: colors.accent,
+    },
+  };
 
   // Hide the native splash screen as soon as authentication bootstrap is completed and first screen is ready
   useEffect(() => {
@@ -72,8 +72,8 @@ const AppNavigator = () => {
   }
 
   return (
-    <NavigationContainer theme={navTheme}>
-      <StatusBar style="light" />
+    <NavigationContainer theme={dynamicNavTheme}>
+      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
       <Stack.Navigator
         screenOptions={{
           headerShown: false,

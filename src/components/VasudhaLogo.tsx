@@ -1,5 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
+
+declare const process: any;
 
 interface VasudhaLogoProps {
   size?: number;
@@ -12,6 +15,8 @@ export const VasudhaLogo: React.FC<VasudhaLogoProps> = ({
   showText = true,
   subtext = 'Vendor & Transaction Operations Hub',
 }) => {
+  const { colors, theme } = useTheme();
+
   return (
     <View style={styles.container}>
       {/* Outer Glow & Professional Brand Ring */}
@@ -22,6 +27,8 @@ export const VasudhaLogo: React.FC<VasudhaLogoProps> = ({
             width: size + 8,
             height: size + 8,
             borderRadius: Math.round((size + 8) / 3),
+            backgroundColor: theme === 'dark' ? 'rgba(2, 132, 199, 0.25)' : 'rgba(2, 132, 199, 0.12)',
+            borderColor: theme === 'dark' ? 'rgba(56, 189, 248, 0.5)' : 'rgba(2, 132, 199, 0.3)',
           },
         ]}
       >
@@ -32,6 +39,8 @@ export const VasudhaLogo: React.FC<VasudhaLogoProps> = ({
               width: size,
               height: size,
               borderRadius: Math.round(size / 3),
+              backgroundColor: theme === 'dark' ? '#070b14' : '#ffffff',
+              borderColor: theme === 'dark' ? 'rgba(56, 189, 248, 0.3)' : 'rgba(2, 132, 199, 0.2)',
             },
           ]}
         >
@@ -50,8 +59,10 @@ export const VasudhaLogo: React.FC<VasudhaLogoProps> = ({
 
       {showText ? (
         <View style={styles.textContainer}>
-          <Text style={styles.mainTitle}>Vasudha Polymer</Text>
-          {subtext ? <Text style={styles.subtitle}>{subtext}</Text> : null}
+          <Text style={[styles.mainTitle, { color: colors.textPrimary }]}>
+            {process.env.EXPO_PUBLIC_COMPANY_NAME || 'Vasudha Polymer'}
+          </Text>
+          {subtext ? <Text style={[styles.subtitle, { color: colors.textMuted }]}>{subtext}</Text> : null}
         </View>
       ) : null}
     </View>
@@ -90,14 +101,12 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   mainTitle: {
-    color: '#f8fafc',
     fontSize: 22,
     fontWeight: '900',
     letterSpacing: -0.5,
     textAlign: 'center',
   },
   subtitle: {
-    color: '#94a3b8',
     fontSize: 12,
     fontWeight: '500',
     marginTop: 4,

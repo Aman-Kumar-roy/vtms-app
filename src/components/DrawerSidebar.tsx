@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -5,12 +6,13 @@ import {
   TouchableOpacity,
   Modal,
   Image,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { Colors } from '../constants/theme';
+import { SignOutConfirmModal } from './SignOutConfirmModal';
 
 interface DrawerSidebarProps {
   visible: boolean;
@@ -26,6 +28,8 @@ export const DrawerSidebar: React.FC<DrawerSidebarProps> = ({
   activeScreen,
 }) => {
   const { user, logout } = useAuth();
+  const { colors, theme, toggleTheme } = useTheme();
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const ROOT_SCREENS = ['Dashboard', 'Sellers', 'Reports', 'Orders', 'Receipts'];
 
   const navigateTo = (screenName: string) => {
@@ -39,12 +43,12 @@ export const DrawerSidebar: React.FC<DrawerSidebarProps> = ({
   return (
     <Modal animationType="fade" transparent visible={visible} onRequestClose={onClose}>
       <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
-        <SafeAreaView style={styles.drawerContainer}>
+        <SafeAreaView style={[styles.drawerContainer, { backgroundColor: colors.bgSecondary, borderRightColor: colors.borderSubtle }]}>
           <TouchableOpacity activeOpacity={1} style={styles.drawerContent}>
             {/* Header / Logo */}
-            <View style={styles.drawerHeader}>
+            <View style={[styles.drawerHeader, { borderBottomColor: colors.borderSubtle }]}>
               <View style={styles.logoGroup}>
-                <View style={styles.logoBadge}>
+                <View style={[styles.logoBadge, { backgroundColor: theme === 'dark' ? '#070b14' : '#ffffff', borderColor: colors.borderSubtle }]}>
                   <Image
                     source={require('../../assets/logo.jpg')}
                     style={styles.logoImg}
@@ -52,44 +56,66 @@ export const DrawerSidebar: React.FC<DrawerSidebarProps> = ({
                   />
                 </View>
                 <View>
-                  <Text style={styles.brandTitle}>VASUDHA</Text>
-                  <Text style={styles.brandSub}>POLYMER ADMIN</Text>
+                  <Text style={[styles.brandTitle, { color: colors.textPrimary }]}>VASUDHA</Text>
+                  <Text style={[styles.brandSub, { color: colors.accent }]}>POLYMER ADMIN</Text>
                 </View>
               </View>
               <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <Ionicons name="close" size={20} color="#94a3b8" />
+                <Ionicons name="close" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.menuLabel}>MAIN MENU</Text>
+            <Text style={[styles.menuLabel, { color: colors.textMuted }]}>MAIN MENU</Text>
 
             {/* Menu Items */}
             <TouchableOpacity
-              style={[styles.menuItem, activeScreen === 'Dashboard' ? styles.menuItemActive : null]}
+              style={[
+                styles.menuItem,
+                activeScreen === 'Dashboard'
+                  ? { backgroundColor: theme === 'dark' ? 'rgba(2, 132, 199, 0.2)' : 'rgba(2, 132, 199, 0.1)', borderColor: colors.accent, borderWidth: 1 }
+                  : null,
+              ]}
               onPress={() => navigateTo('Dashboard')}
             >
               <Ionicons
                 name="grid-outline"
                 size={18}
-                color={activeScreen === 'Dashboard' ? '#38bdf8' : '#94a3b8'}
+                color={activeScreen === 'Dashboard' ? colors.accent : colors.textMuted}
                 style={{ marginRight: 12 }}
               />
-              <Text style={[styles.itemText, activeScreen === 'Dashboard' ? styles.itemTextActive : null]}>
+              <Text
+                style={[
+                  styles.itemText,
+                  { color: activeScreen === 'Dashboard' ? colors.accent : colors.textSecondary },
+                  activeScreen === 'Dashboard' ? styles.itemTextActive : null,
+                ]}
+              >
                 Dashboard
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.menuItem, activeScreen === 'Sellers' ? styles.menuItemActive : null]}
+              style={[
+                styles.menuItem,
+                activeScreen === 'Sellers'
+                  ? { backgroundColor: theme === 'dark' ? 'rgba(2, 132, 199, 0.2)' : 'rgba(2, 132, 199, 0.1)', borderColor: colors.accent, borderWidth: 1 }
+                  : null,
+              ]}
               onPress={() => navigateTo('Sellers')}
             >
               <Ionicons
                 name="people-outline"
                 size={18}
-                color={activeScreen === 'Sellers' ? '#38bdf8' : '#94a3b8'}
+                color={activeScreen === 'Sellers' ? colors.accent : colors.textMuted}
                 style={{ marginRight: 12 }}
               />
-              <Text style={[styles.itemText, activeScreen === 'Sellers' ? styles.itemTextActive : null]}>
+              <Text
+                style={[
+                  styles.itemText,
+                  { color: activeScreen === 'Sellers' ? colors.accent : colors.textSecondary },
+                  activeScreen === 'Sellers' ? styles.itemTextActive : null,
+                ]}
+              >
                 Sellers
               </Text>
               <View style={styles.badgeCore}>
@@ -98,16 +124,27 @@ export const DrawerSidebar: React.FC<DrawerSidebarProps> = ({
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.menuItem, activeScreen === 'Reports' ? styles.menuItemActive : null]}
+              style={[
+                styles.menuItem,
+                activeScreen === 'Reports'
+                  ? { backgroundColor: theme === 'dark' ? 'rgba(2, 132, 199, 0.2)' : 'rgba(2, 132, 199, 0.1)', borderColor: colors.accent, borderWidth: 1 }
+                  : null,
+              ]}
               onPress={() => navigateTo('Reports')}
             >
               <Ionicons
                 name="bar-chart-outline"
                 size={18}
-                color={activeScreen === 'Reports' ? '#38bdf8' : '#94a3b8'}
+                color={activeScreen === 'Reports' ? colors.accent : colors.textMuted}
                 style={{ marginRight: 12 }}
               />
-              <Text style={[styles.itemText, activeScreen === 'Reports' ? styles.itemTextActive : null]}>
+              <Text
+                style={[
+                  styles.itemText,
+                  { color: activeScreen === 'Reports' ? colors.accent : colors.textSecondary },
+                  activeScreen === 'Reports' ? styles.itemTextActive : null,
+                ]}
+              >
                 Reports
               </Text>
               <View style={styles.badgeNew}>
@@ -116,16 +153,27 @@ export const DrawerSidebar: React.FC<DrawerSidebarProps> = ({
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.menuItem, activeScreen === 'Orders' ? styles.menuItemActive : null]}
+              style={[
+                styles.menuItem,
+                activeScreen === 'Orders'
+                  ? { backgroundColor: theme === 'dark' ? 'rgba(2, 132, 199, 0.2)' : 'rgba(2, 132, 199, 0.1)', borderColor: colors.accent, borderWidth: 1 }
+                  : null,
+              ]}
               onPress={() => navigateTo('Orders')}
             >
               <Ionicons
                 name="cube-outline"
                 size={18}
-                color={activeScreen === 'Orders' ? '#38bdf8' : '#94a3b8'}
+                color={activeScreen === 'Orders' ? colors.accent : colors.textMuted}
                 style={{ marginRight: 12 }}
               />
-              <Text style={[styles.itemText, activeScreen === 'Orders' ? styles.itemTextActive : null]}>
+              <Text
+                style={[
+                  styles.itemText,
+                  { color: activeScreen === 'Orders' ? colors.accent : colors.textSecondary },
+                  activeScreen === 'Orders' ? styles.itemTextActive : null,
+                ]}
+              >
                 Orders
               </Text>
               <View style={styles.badgeSoon}>
@@ -134,36 +182,90 @@ export const DrawerSidebar: React.FC<DrawerSidebarProps> = ({
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.menuItem, activeScreen === 'Receipts' ? styles.menuItemActive : null]}
+              style={[
+                styles.menuItem,
+                activeScreen === 'Receipts'
+                  ? { backgroundColor: theme === 'dark' ? 'rgba(2, 132, 199, 0.2)' : 'rgba(2, 132, 199, 0.1)', borderColor: colors.accent, borderWidth: 1 }
+                  : null,
+              ]}
               onPress={() => navigateTo('Receipts')}
             >
               <Ionicons
                 name="receipt-outline"
                 size={18}
-                color={activeScreen === 'Receipts' ? '#38bdf8' : '#94a3b8'}
+                color={activeScreen === 'Receipts' ? colors.accent : colors.textMuted}
                 style={{ marginRight: 12 }}
               />
-              <Text style={[styles.itemText, activeScreen === 'Receipts' ? styles.itemTextActive : null]}>
+              <Text
+                style={[
+                  styles.itemText,
+                  { color: activeScreen === 'Receipts' ? colors.accent : colors.textSecondary },
+                  activeScreen === 'Receipts' ? styles.itemTextActive : null,
+                ]}
+              >
                 Receipts
               </Text>
             </TouchableOpacity>
 
+            {/* In-Drawer Theme Switcher */}
+            <TouchableOpacity
+              style={[
+                styles.menuItem,
+                {
+                  backgroundColor: theme === 'dark' ? 'rgba(56, 189, 248, 0.08)' : 'rgba(2, 132, 199, 0.06)',
+                  borderWidth: 1,
+                  borderColor: colors.borderSubtle,
+                  marginTop: 6,
+                },
+              ]}
+              onPress={toggleTheme}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={theme === 'dark' ? 'sunny' : 'moon'}
+                size={18}
+                color={theme === 'dark' ? '#f59e0b' : '#6366f1'}
+                style={{ marginRight: 12 }}
+              />
+              <Text style={[styles.itemText, { color: colors.textPrimary, fontWeight: '700' }]}>
+                {theme === 'dark' ? 'Light Theme' : 'Dark Theme'}
+              </Text>
+              <View
+                style={[
+                  styles.badgeCore,
+                  {
+                    backgroundColor: theme === 'dark' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(99, 102, 241, 0.15)',
+                    borderColor: 'transparent',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.badgeCoreText,
+                    { color: theme === 'dark' ? '#f59e0b' : '#6366f1' },
+                  ]}
+                >
+                  {theme === 'dark' ? 'LIGHT' : 'DARK'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
             {/* Bottom Nav Column: Profile & Sign Out */}
             <View style={styles.footerNavGroup}>
-              <View style={styles.divider} />
+              <View style={[styles.divider, { backgroundColor: colors.borderSubtle }]} />
 
               {/* Current Admin Account Profile Name & Role Row */}
-              <View style={styles.userSection}>
-                <View style={styles.userAvatar}>
-                  <Text style={styles.userAvatarText}>
+              <View style={[styles.userSection, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
+                <View style={[styles.userAvatar, { backgroundColor: colors.bgSecondary, borderColor: colors.accent }]}>
+                  <Text style={[styles.userAvatarText, { color: colors.accent }]}>
                     {(user?.name || 'A')[0].toUpperCase()}
                   </Text>
                 </View>
                 <View style={styles.userInfo}>
-                  <Text style={styles.userName} numberOfLines={1}>
+                  <Text style={[styles.userName, { color: colors.textPrimary }]} numberOfLines={1}>
                     {user?.name || 'Admin User'}
                   </Text>
-                  <Text style={styles.userRole}>
+                  <Text style={[styles.userRole, { color: colors.accent }]}>
                     {user?.role ? user.role.toUpperCase() : 'ADMIN'}
                   </Text>
                 </View>
@@ -172,23 +274,7 @@ export const DrawerSidebar: React.FC<DrawerSidebarProps> = ({
               {/* Sign Out / Logout Action Row */}
               <TouchableOpacity
                 style={styles.logoutBtn}
-                onPress={() => {
-                  Alert.alert(
-                    'Sign Out',
-                    'Are you sure you want to log out of Vasudha Polymer VTMS Admin?',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Sign Out',
-                        style: 'destructive',
-                        onPress: () => {
-                          onClose();
-                          logout();
-                        },
-                      },
-                    ]
-                  );
-                }}
+                onPress={() => setShowSignOutConfirm(true)}
                 activeOpacity={0.8}
               >
                 <Ionicons name="log-out-outline" size={18} color="#ef4444" style={{ marginRight: 10 }} />
@@ -198,6 +284,18 @@ export const DrawerSidebar: React.FC<DrawerSidebarProps> = ({
           </TouchableOpacity>
         </SafeAreaView>
       </TouchableOpacity>
+
+      {/* Sleek Custom Sign Out Confirmation Modal */}
+      <SignOutConfirmModal
+        visible={showSignOutConfirm}
+        onClose={() => setShowSignOutConfirm(false)}
+        onConfirm={() => {
+          setShowSignOutConfirm(false);
+          onClose();
+          logout();
+        }}
+        user={user}
+      />
     </Modal>
   );
 };

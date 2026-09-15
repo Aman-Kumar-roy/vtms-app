@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "c1f73b64-8df6-4b2a-9e12-89df34e6b12a",
     "name": "Vasudha Polymer VTMS - REST API Collection",
-    "description": "Production Postman Collection for Vasudha Polymer Vendor & Transaction Management System (VTMS). Supports Web Dashboard and React Native Mobile App.\n\nKey Highlights:\n- Official Admin Credentials: admin@vasudhapolymer.com / Admin@123 (and default fallback admin@webkul.com / admin123)\n- Strict Tank Capacities: 500L, 1000L, 2000L ONLY (tank500, tank1000, tank2000)\n- Seller Toggle Logic: requireAdditional flag (ON: GSTIN + Email required; OFF: Only Name required)\n- Server-Generated Official Receipts: RCP-XXXXXXXX vouchers with company credentials & itemized unit breakdown\n- Real-Time Dynamic Financials: Server-computed totalDeliveries, totalPaid, and totalDues.",
+    "description": "Production Postman Collection for Vasudha Polymer Vendor & Transaction Management System (VTMS). Supports Web Dashboard and React Native Mobile App.\n\nKey Highlights:\n- Official Admin Credentials: admin@vasudhapolymer.com / Admin@123 (and default fallback admin@webkul.com / admin123)\n- Strict Tank Capacities: 500L and 1000L ONLY (tank500, tank1000). Flexible line items (tankItems: [{ size, quantity, layers: 3-6, foam }])\n- Back Dues Tracking: previousDues and currentDues on each transaction\n- Seller Toggle Logic: requireAdditional flag (ON: GSTIN + Email required; OFF: Only Name required)\n- Server-Generated Official Receipts: RCP-XXXXXXXX vouchers with company credentials & itemized unit breakdown\n- Real-Time Dynamic Financials: Server-computed totalDeliveries, totalPaid, and totalDues.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -190,7 +190,7 @@
                 }
               ]
             },
-            "description": "Retrieve paginated sellers with dynamically calculated totals (totalDeliveries, totalPaid, totalDues, tank500, tank1000, tank2000)."
+            "description": "Retrieve paginated sellers with dynamically calculated totals (totalDeliveries, totalPaid, totalDues, tank500, tank1000)."
           }
         },
         {
@@ -384,7 +384,7 @@
           }
         },
         {
-          "name": "Create Delivery Transaction (Strict 500L, 1000L, 2000L)",
+          "name": "Create Delivery Transaction (Flexible 500L & 1000L Line Items)",
           "event": [
             {
               "listen": "test",
@@ -415,14 +415,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"sellerId\": \"{{sellerId}}\",\n  \"type\": \"DELIVERY\",\n  \"amount\": 38500.50,\n  \"date\": \"2026-09-05T12:00:00.000Z\",\n  \"note\": \"Dispatched standard polymer water storage tanks batch #101\",\n  \"tank500\": 10,\n  \"tank1000\": 5,\n  \"tank2000\": 2\n}"
+              "raw": "{\n  \"sellerId\": \"{{sellerId}}\",\n  \"type\": \"DELIVERY\",\n  \"amount\": 38500.50,\n  \"date\": \"2026-09-05T12:00:00.000Z\",\n  \"note\": \"Dispatched standard polymer water storage tanks batch #101\",\n  \"tankItems\": [\n    { \"size\": 500, \"quantity\": 10, \"layers\": 3, \"foam\": \"none\" },\n    { \"size\": 1000, \"quantity\": 5, \"layers\": 4, \"foam\": \"single\" }\n  ]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/transactions",
               "host": ["{{baseUrl}}"],
               "path": ["transactions"]
             },
-            "description": "Record a DELIVERY transaction with strict tank sizes (tank500, tank1000, tank2000). Returns 201 Created with server-generated official receipt voucher."
+            "description": "Record a DELIVERY transaction with flexible line items (500L & 1000L). Returns 201 Created with server-generated official receipt voucher."
           }
         },
         {
@@ -500,7 +500,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"amount\": 42000.00,\n  \"note\": \"Updated batch dispatch count with 2 extra 500L tanks\",\n  \"tank500\": 12,\n  \"tank1000\": 5,\n  \"tank2000\": 2\n}"
+              "raw": "{\n  \"amount\": 42000.00,\n  \"note\": \"Updated batch dispatch count with 2 extra 500L tanks\",\n  \"tankItems\": [\n    { \"size\": 500, \"quantity\": 12, \"layers\": 3, \"foam\": \"none\" },\n    { \"size\": 1000, \"quantity\": 5, \"layers\": 4, \"foam\": \"single\" }\n  ]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/transactions/{{transactionId}}",
@@ -548,11 +548,11 @@
               "host": ["{{baseUrl}}"],
               "path": ["reports", "summary"]
             },
-            "description": "Returns overall platform financials: totalBilledSales, totalClearedPayments, totalPendingReceivables, tank unit totals (500L, 1000L, 2000L), and top vendors by revenue."
+            "description": "Returns overall platform financials: totalBilledSales, totalClearedPayments, totalOutstandingDues, tank unit totals (500L, 1000L), and top vendors by revenue."
           }
         },
         {
-          "name": "Get Tank Summary Report (500L, 1000L, 2000L)",
+          "name": "Get Tank Summary Report (500L, 1000L)",
           "request": {
             "method": "GET",
             "header": [
@@ -566,7 +566,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["reports", "tank-summary"]
             },
-            "description": "Returns aggregated counts of tanks sold/delivered strictly categorized into 500L, 1000L, and 2000L sizes."
+            "description": "Returns aggregated counts of tanks sold/delivered strictly categorized into 500L and 1000L sizes."
           }
         }
       ]

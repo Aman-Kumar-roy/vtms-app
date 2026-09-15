@@ -3,10 +3,15 @@
 ## 🔴 CRITICAL MANDATORY AGENT RULE
 - **KEEP ALL AI FILES UPDATED:** You MUST keep all AI files and skill documentation strictly updated inside the `app/` folder (`app/SKILLS.md`, `app/README.md`, `app/API_DOCUMENTATION.md`, `app/.agents/AGENTS.md`) whenever any project structure, UI layout, or business rules are modified.
 
-## 💧 IMPORTANT RULE: Tank Capacities & Unit Display Constraint
-- Only the following tank sizes are allowed: `500`, `1000`, `2000` (`tank500`, `tank1000`, `tank2000`).
-- Do NOT add `tank300`, `tank750`, `tank1500`, or any other tank size.
+## 💧 IMPORTANT RULE: Tank Capacities, Layers & Foam Constraint
+- Only the following tank sizes are allowed: `500` and `1000` (`tank500`, `tank1000`). `2000L` (`tank2000`) has been completely removed and is prohibited with 400 Bad Request.
+- Do NOT add `tank300`, `tank750`, `tank1500`, `tank2000`, or any other tank size.
+- Deliveries support flexible line items via `tankItems: [{ size: 500 | 1000, quantity: number, layers: 3-6, foam?: 'none' | 'single' | 'double' }]`.
 - Tank reporting and breakdown MUST display **Tank Unit Numbers / Quantities** (e.g. `5 Tanks`, `12 Units`), NOT volume in Liters (`5,000 L`).
+- **Tank Layers**: 3 to 6 layers mandatory per tank item.
+- **Foam Type (1000L only)**: `none`, `single`, `double` (`tank1000_foam`). Prohibited on 500L tanks.
+- **Back Due Tracking**: Every transaction tracks `previousDues` (balance before transaction) and `currentDues` (balance after transaction).
+- Ignored for `PAYMENT` transactions. Legacy records remain valid without layers/foam.
 
 ---
 
@@ -22,7 +27,9 @@
      - Checkmark status badge
      - Official Server Receipt Voucher Number (`RCP-XXXXXXXX`)
      - Three actions: `View Official Receipt`, `+ Record Another`, `Done`.
-   - Pre-submission order summary card showing live vendor name, item breakdown (strictly `500L`, `1000L`, `2000L`), and total billed amount in ₹.
+   - Pre-submission order summary card showing live vendor name, item breakdown (strictly `500L` and `1000L`), previous dues, current dues, and total billed amount in ₹ with responsive flex-wrap.
+   - Multiline note `<TextInput multiline={true} numberOfLines={3} maxLength={500}>` with live character counter.
+   - Amber / yellow dues formatting (`#f59e0b` / `text-amber-400`) and positive currency display (`Math.abs(val)`).
 
 3. **Server-Generated Official Receipts & Canonical PDF Engine**:
    - Unified receipt engine: Web and mobile share the **identical server-generated vector PDF** from `GET /api/v1/transactions/:id/receipt/pdf`.
@@ -63,3 +70,9 @@
 
 11. **Server Receipt Synchronization & Hot Environment Resolution**:
     - Mobile receipt preview in [`ReceiptModal.tsx`](file:///d:/vasudha-polymer/app/src/components/ReceiptModal.tsx) fetches live server-rendered metadata from `/api/v1/transactions/:id/receipt` ensuring 100% branding, GSTIN, and voucher consistency with the canonical downloaded vector PDF.
+
+12. **Server Database Performance & Pagination Parity**:
+    - Mobile consumes true database-level paginated queries (`GET /api/v1/sellers/:id?page=1&limit=10`, `GET /api/v1/transactions?page=1&limit=50`).
+    - The server bounds all queries (max 100 limit) and uses indexed B-tree queries (`TransactionSchema` and `SellerSchema` compound indexes) with MongoDB `$group` aggregations for lifetime ledger metrics.
+
+

@@ -17,7 +17,7 @@
 ## 🖨️ Server-Generated Receipts & Canonical PDF Architecture
  
 The mobile application consumes the **identical server-generated vector PDF** as the web dashboard:
-- The backend (`server/src/services/pdfReceiptService.ts`) generates official vector PDFs with strict `44x44pt` logo bounding, vector icons (`12-14pt`), strict `500L`, `1000L`, and `2000L` tank breakdowns, and digital verification seals.
+- The backend (`server/src/services/pdfReceiptService.ts`) generates official vector PDFs with strict `44x44pt` logo bounding, vector icons (`12-14pt`), strict `500L` and `1000L` tank breakdowns, back dues, and digital verification seals.
 - Endpoint: `GET /api/v1/transactions/:id/receipt/pdf` (streams vector `application/pdf`).
 - Downloaded locally using [`downloadReceiptPdfApi`](file:///d:/vasudha-polymer/app/src/api/transaction.ts) (`File.downloadFileAsync` via `expo-file-system`).
 - Displayed and triggered in [`ReceiptModal.tsx`](file:///d:/vasudha-polymer/app/src/components/ReceiptModal.tsx) via `expo-print` (`Print.printAsync({ uri })`) and `expo-sharing` (`Sharing.shareAsync(uri)`).
@@ -27,7 +27,8 @@ The mobile application consumes the **identical server-generated vector PDF** as
 
 ## 🔒 Business Domain Rules
 
-- **Tank Capacities & Unit Counts:** Strictly limited to **`500L` (`tank500`)**, **`1,000L` (`tank1000`)**, and **`2,000L` (`tank2000`)** ONLY.
+- **Tank Capacities & Unit Counts:** Strictly limited to **`500L` (`tank500`)** and **`1,000L` (`tank1000`)** ONLY. `2000L` has been removed and is prohibited.
+- **Back Due Tracking:** Tracks `previousDues` and `currentDues` across transactions.
 - **Selling Units:** The business model represents selling tank units to sellers/vendors. Never use "Volume" or "Report" in transaction screens.
 - **Transaction-Creation Flow:** In-context bottom sheets (`AddTransactionModal.tsx`) for `DELIVERY` and `PAYMENT`. Never redirect or pop navigation on API success. Display a floating toast (`"Transaction created successfully."`) and an in-context success confirmation with `View Official Receipt`, `+ Record Another`, and `Done`.
 - **Seller Toggle Parity:** Matches web [`AddSellerModal.tsx`](file:///d:/vasudha-polymer/client/src/modules/seller/components/AddSellerModal.tsx) and mobile [`AddSellerModal.tsx`](file:///d:/vasudha-polymer/app/src/components/AddSellerModal.tsx) with the "Require additional fields" switch toggle:
@@ -43,7 +44,7 @@ The mobile application consumes the **identical server-generated vector PDF** as
 2. **`DashboardScreen`**: Command Center Hero Banner, top vendor highlight, active vendor metrics, and unit distribution charts.
 3. **`SellersScreen`**: Vendor directory with instant search, filter modes (All, Dues, Settled), ledger metrics, and one-tap "+ Add Vendor" and "+ Delivery" in-context modals.
 4. **`AddSellerModal` / `AddSellerScreen`**: Vendor onboarding with "Require additional fields" switch toggle matching the web app.
-5. **`AddTransactionModal`**: Unified in-context modal for `DELIVERY` (500L, 1000L, 2000L unit steppers) and `PAYMENT` (cash, UPI, cheque, bank transfer) with interactive calendar date picking (`DatePickerField`), live calculations, and official server receipt voucher generation.
+5. **`AddTransactionModal`**: Unified in-context modal for `DELIVERY` (500L and 1000L unit steppers with 3-6 layers and foam options) and `PAYMENT` (cash, UPI, cheque, bank transfer) with interactive calendar date picking (`DatePickerField`), live calculations, and official server receipt voucher generation.
 6. **`DeliveryFormScreen` & `PaymentFormScreen`**: Dedicated fallback screens supporting the same interactive calendar date picker, live order summary, validation, and in-context success flow.
 7. **`TransactionsScreen`**: Full transaction ledger with search, type filters, "+ Delivery" & "+ Payment" modals, and one-tap receipt voucher preview.
 8. **`ReceiptsScreen`**: Dedicated voucher ledger for reviewing formal transaction slips.

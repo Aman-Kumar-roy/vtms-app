@@ -144,7 +144,7 @@ export const SellersScreen: React.FC<SellersScreenProps> = ({ route, navigation,
   };
 
   const fmtCurrency = (val: number) => {
-    return '₹' + Number(val || 0).toLocaleString('en-IN', {
+    return '₹' + Math.abs(Number(val || 0)).toLocaleString('en-IN', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
@@ -171,7 +171,11 @@ export const SellersScreen: React.FC<SellersScreenProps> = ({ route, navigation,
   });
 
   return (
-    <AnimatedScreenWrapper style={[styles.container, { backgroundColor: colors.bgPrimary }, isEmbedded && { paddingHorizontal: 0, paddingTop: 0 }]}>
+    <AnimatedScreenWrapper
+      direction={isEmbedded ? 'none' : 'up'}
+      showTopLoader={!isEmbedded}
+      style={[styles.container, { backgroundColor: colors.bgPrimary }, isEmbedded && { paddingHorizontal: 0, paddingTop: 0 }]}
+    >
       {!isEmbedded && (
         <>
           <NavbarHeader
@@ -193,7 +197,7 @@ export const SellersScreen: React.FC<SellersScreenProps> = ({ route, navigation,
         <Text style={[styles.title, { color: colors.textPrimary }]}>Vendors Directory</Text>
 
         <TouchableOpacity
-          style={styles.addBtn}
+          style={[styles.addBtn, { backgroundColor: colors.accent }]}
           onPress={() => setAddSellerVisible(true)}
           activeOpacity={0.8}
         >
@@ -203,7 +207,7 @@ export const SellersScreen: React.FC<SellersScreenProps> = ({ route, navigation,
       </View>
 
       {/* Search Input */}
-      <View style={styles.searchBox}>
+      <View style={[styles.searchBox, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
         <Ionicons name="search" size={16} color={colors.textMuted} style={{ marginRight: 8 }} />
         <TextInput
           style={[styles.searchInput, { color: colors.textPrimary }]}
@@ -227,14 +231,14 @@ export const SellersScreen: React.FC<SellersScreenProps> = ({ route, navigation,
             style={[
               styles.filterPill,
               { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle },
-              filterMode === mode ? styles.filterPillActive : null,
+              filterMode === mode ? { backgroundColor: colors.accent, borderColor: colors.accent } : null,
             ]}
             onPress={() => setFilterMode(mode)}
           >
             <Text
               style={[
                 styles.filterPillText,
-                { color: filterMode === mode ? '#fff' : colors.textMuted },
+                { color: filterMode === mode ? '#ffffff' : colors.textSecondary },
               ]}
             >
               {mode === 'ALL' ? 'All Vendors' : mode === 'DUES' ? 'Pending Dues' : 'Settled'}
@@ -292,7 +296,7 @@ export const SellersScreen: React.FC<SellersScreenProps> = ({ route, navigation,
         visible={addSellerVisible}
         onClose={() => setAddSellerVisible(false)}
         onSuccess={async (_created) => {
-          setToastMsg('Seller created successfully.');
+          setToastMsg((_created as any)?.serverMessage || 'Seller created successfully.');
           await invalidateSellers();
           fetchSellers(1, true);
         }}
@@ -309,6 +313,9 @@ export const SellersScreen: React.FC<SellersScreenProps> = ({ route, navigation,
         sellers={sellers}
         initialType={txModalType}
         onSuccess={async (_tx) => {
+          if ((_tx as any)?.serverMessage) {
+            setToastMsg((_tx as any).serverMessage);
+          }
           await invalidateTransactions(txSeller?._id);
           fetchSellers(1, true);
         }}

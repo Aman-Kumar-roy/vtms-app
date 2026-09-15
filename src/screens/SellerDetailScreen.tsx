@@ -27,7 +27,7 @@ import { useSellerDetailQuery } from '../query/useQueries';
 import { invalidateTransactions } from '../query/queryClient';
 
 export const SellerDetailScreen = ({ route, navigation }: any) => {
-  const { colors } = useTheme();
+  const { colors, theme } = useTheme();
   const sellerId = route?.params?.sellerId;
   const routeSeller = route?.params?.seller;
 
@@ -86,7 +86,7 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
   };
 
   const fmtCurrency = (val: number) => {
-    return '₹' + Number(val || 0).toLocaleString('en-IN', {
+    return '₹' + Math.abs(Number(val || 0)).toLocaleString('en-IN', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
@@ -106,44 +106,13 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
 
   const sellerTitle = seller?.name || route?.params?.sellerName || 'Vendor Details';
 
-  if (isLoading && !seller) {
-    return (
-      <AnimatedScreenWrapper direction="right" style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
-        <NavbarHeader
-          currentScreenTitle={sellerTitle}
-          onOpenDrawer={() => navigation.goBack()}
-          navigation={navigation}
-        />
-        <SellerDetailSkeleton />
-      </AnimatedScreenWrapper>
-    );
-  }
-
-  if (!seller) {
-    return (
-      <AnimatedScreenWrapper direction="right" style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
-        <NavbarHeader
-          currentScreenTitle="Vendor Not Found"
-          onOpenDrawer={() => navigation.goBack()}
-          navigation={navigation}
-        />
-        <View style={[styles.center, { flex: 1 }]}>
-          <Text style={{ color: colors.textPrimary, fontSize: 16 }}>Vendor not found</Text>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Text style={{ color: '#fff', fontWeight: '700' }}>← Go Back</Text>
-          </TouchableOpacity>
-        </View>
-      </AnimatedScreenWrapper>
-    );
-  }
-
   const filteredTxs = transactions.filter((t) => {
     if (filterType === 'ALL') return true;
     return t.type === filterType;
   });
 
   return (
-    <AnimatedScreenWrapper direction="right" style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
+    <AnimatedScreenWrapper direction="none" showTopLoader={false} style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
       <ReceiptModal
         visible={receiptVisible}
         onClose={() => setReceiptVisible(false)}
@@ -151,18 +120,28 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
       />
 
       <NavbarHeader
-        currentScreenTitle={seller.name}
+        currentScreenTitle={sellerTitle}
         onOpenDrawer={() => navigation.goBack()}
         navigation={navigation}
       />
 
-      <ScrollView
-        style={styles.scroll}
-        refreshControl={<RefreshControl refreshing={isPullRefreshing} onRefresh={onRefresh} tintColor={colors.accentHover} />}
-      >
-        {/* Vendor Header Card */}
-        <View style={[styles.profileCard, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
-          <View style={styles.profileTop}>
+      {isLoading && !seller ? (
+        <SellerDetailSkeleton />
+      ) : !seller ? (
+        <View style={[styles.center, { flex: 1 }]}>
+          <Text style={{ color: colors.textPrimary, fontSize: 16 }}>Vendor not found</Text>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <Text style={{ color: '#fff', fontWeight: '700' }}>← Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scroll}
+          refreshControl={<RefreshControl refreshing={isPullRefreshing} onRefresh={onRefresh} tintColor={colors.accentHover} />}
+        >
+          {/* Vendor Header Card */}
+          <View style={[styles.profileCard, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
+            <View style={styles.profileTop}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{(seller.name || 'V')[0].toUpperCase()}</Text>
             </View>
@@ -243,9 +222,15 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
             <Text style={[styles.statVal, { color: '#10b981' }]}>{fmtCurrency(stats?.totalPaid || 0)}</Text>
           </View>
           <View style={[styles.statBox, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
-            <Text style={[styles.statLabel, { color: colors.textMuted }]}>BALANCE DUES</Text>
+            <Text style={[styles.statLabel, { color: colors.textMuted }]}>
+              {(stats?.totalDues || 0) < 0 ? 'ADVANCE CREDIT' : 'BALANCE DUES'}
+            </Text>
             <Text style={[styles.statVal, { color: (stats?.totalDues || 0) > 0 ? '#ef4444' : '#10b981' }]}>
-              {fmtCurrency(stats?.totalDues || 0)}
+              {(stats?.totalDues || 0) < 0
+                ? `+${fmtCurrency(stats?.totalDues || 0)}`
+                : (stats?.totalDues || 0) === 0
+                ? 'Settled ✓'
+                : fmtCurrency(stats?.totalDues || 0)}
             </Text>
           </View>
         </View>
@@ -260,29 +245,26 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
             <View style={[styles.tankPill, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
               <Text style={{ color: '#10b981', fontWeight: '800' }}>1000L: {stats?.tank1000 || 0}</Text>
             </View>
-            <View style={[styles.tankPill, { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
-              <Text style={{ color: '#8b5cf6', fontWeight: '800' }}>2000L: {stats?.tank2000 || 0}</Text>
-            </View>
           </View>
         </View>
 
         {/* Transaction History */}
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Transaction History</Text>
-          <View style={styles.filterTabs}>
+          <View style={[styles.filterTabs, { backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.06)' }]}>
             {(['ALL', 'DELIVERY', 'PAYMENT'] as const).map((t) => (
               <TouchableOpacity
                 key={t}
                 style={[
                   styles.filterTab,
-                  filterType === t ? styles.filterTabActive : null,
+                  filterType === t ? [styles.filterTabActive, { backgroundColor: colors.accent }] : null,
                 ]}
                 onPress={() => setFilterType(t)}
               >
                 <Text
                   style={[
                     styles.filterTabText,
-                    filterType === t ? styles.filterTabTextActive : { color: colors.textMuted },
+                    filterType === t ? styles.filterTabTextActive : { color: colors.textSecondary },
                   ]}
                 >
                   {t}
@@ -300,14 +282,12 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
           filteredTxs.map((tx) => {
             const txId = tx._id || tx.id || '';
             const isDelivery = tx.type === 'DELIVERY';
-            const paidAmount = tx.paidAmount !== undefined
-              ? tx.paidAmount
-              : (tx.linkedPayments ? tx.linkedPayments.reduce((s: number, p: any) => s + p.amount, 0) : 0);
-            const remainingDue = tx.remainingDue !== undefined
-              ? tx.remainingDue
-              : Math.max(0, tx.amount - paidAmount);
+            const advanceCredit = tx.advanceCredit || 0;
+            const paidAmount = tx.paidAmount || 0;
+            const remainingDue = tx.remainingDue !== undefined ? tx.remainingDue : 0;
             const isExpanded = expandedDeliveries[txId] !== undefined ? expandedDeliveries[txId] : true;
-            const paidPercent = tx.amount > 0 ? Math.min(100, Math.round((paidAmount / tx.amount) * 100)) : 0;
+            const totalCovered = Math.min(tx.amount, paidAmount + advanceCredit);
+            const paidPercent = tx.amount > 0 ? Math.min(100, Math.round((totalCovered / tx.amount) * 100)) : 0;
 
             return (
               <View
@@ -329,9 +309,11 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
                         {remainingDue <= 0 ? (
                           <View style={[styles.statusBadge, { backgroundColor: 'rgba(16, 185, 129, 0.15)', borderColor: 'rgba(16, 185, 129, 0.3)' }]}>
                             <Ionicons name="checkmark-circle" size={11} color="#10b981" style={{ marginRight: 3 }} />
-                            <Text style={[styles.statusBadgeText, { color: '#10b981' }]}>Fully Paid</Text>
+                            <Text style={[styles.statusBadgeText, { color: '#10b981' }]}>
+                              {paidAmount >= tx.amount ? 'Fully Paid' : 'Settled (Advance)'}
+                            </Text>
                           </View>
-                        ) : paidAmount > 0 ? (
+                        ) : (paidAmount > 0 || advanceCredit > 0) ? (
                           <View style={[styles.statusBadge, { backgroundColor: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.3)' }]}>
                             <Ionicons name="time-outline" size={11} color="#f59e0b" style={{ marginRight: 3 }} />
                             <Text style={[styles.statusBadgeText, { color: '#f59e0b' }]}>Partial ({paidPercent}%)</Text>
@@ -363,7 +345,10 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
                           Bill: <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>{fmtCurrency(tx.amount)}</Text>
                         </Text>
                         <Text style={[styles.minimalFinanceText, { color: colors.textMuted }]}>
-                          Paid: <Text style={{ color: '#10b981', fontWeight: '700' }}>{fmtCurrency(paidAmount)}</Text>
+                          {paidAmount > 0 ? 'Paid: ' : advanceCredit > 0 ? 'Advance: ' : 'Paid: '}
+                          <Text style={{ color: '#10b981', fontWeight: '700' }}>
+                            {fmtCurrency(paidAmount > 0 ? paidAmount : totalCovered)}
+                          </Text>
                         </Text>
                         <Text style={[styles.minimalFinanceText, { color: colors.textMuted }]}>
                           Due: <Text style={{ color: remainingDue > 0 ? '#ef4444' : '#10b981', fontWeight: '700' }}>{fmtCurrency(remainingDue)}</Text>
@@ -383,28 +368,103 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
                     </View>
 
                     {/* Tanks Delivered Breakdown */}
-                    <View style={styles.tankRow}>
-                      <View style={[styles.tankUnitPill, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
-                        <Text style={{ fontSize: 11, color: '#3b82f6', fontWeight: '700' }}>500L: {tx.tank500 || 0}</Text>
+                    {tx.tankItems && tx.tankItems.length > 0 ? (
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: 3 }}>
+                        {tx.tankItems.filter((t) => Number(t.quantity) > 0).map((t, idx) => {
+                          const foamStr = t.size === 1000 && t.foam && t.foam !== 'none' ? `, ${t.foam}` : '';
+                          const is500 = t.size === 500;
+                          return (
+                            <View
+                              key={idx}
+                              style={{
+                                paddingHorizontal: 8,
+                                paddingVertical: 3,
+                                borderRadius: 6,
+                                backgroundColor: is500 ? 'rgba(59, 130, 246, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                                borderWidth: 1,
+                                borderColor: is500 ? 'rgba(59, 130, 246, 0.25)' : 'rgba(16, 185, 129, 0.25)',
+                              }}
+                            >
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: is500 ? '#60a5fa' : '#34d399' }}>
+                                {t.quantity}× {t.size}L ({t.layers || 3}L{foamStr})
+                              </Text>
+                            </View>
+                          );
+                        })}
                       </View>
-                      <View style={[styles.tankUnitPill, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                        <Text style={{ fontSize: 11, color: '#10b981', fontWeight: '700' }}>1000L: {tx.tank1000 || 0}</Text>
+                    ) : (
+                      <View style={styles.tankRow}>
+                        <View style={[styles.tankUnitPill, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
+                          <Text style={{ fontSize: 11, color: '#3b82f6', fontWeight: '700' }}>500L: {tx.tank500 || 0}</Text>
+                        </View>
+                        <View style={[styles.tankUnitPill, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                          <Text style={{ fontSize: 11, color: '#10b981', fontWeight: '700' }}>1000L: {tx.tank1000 || 0}</Text>
+                        </View>
                       </View>
-                      <View style={[styles.tankUnitPill, { backgroundColor: 'rgba(139, 92, 246, 0.1)' }]}>
-                        <Text style={{ fontSize: 11, color: '#8b5cf6', fontWeight: '700' }}>2000L: {tx.tank2000 || 0}</Text>
+                    )}
+                    {tx.previousDues !== undefined ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 3, marginTop: 4 }}>
+                        <Text style={{ fontSize: 11, color: colors.textMuted }}>Balance:</Text>
+                        <Text style={{ fontSize: 11, color: tx.previousDues < 0 ? '#10b981' : colors.textMuted, fontWeight: tx.previousDues < 0 ? '700' : '500' }}>
+                          {tx.previousDues < 0 ? `+ ${fmtCurrency(tx.previousDues)}` : fmtCurrency(tx.previousDues)}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: colors.textMuted }}>→</Text>
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            fontWeight: '800',
+                            color: (tx.currentDues ?? (tx.previousDues + tx.amount)) === 0
+                              ? '#10b981'
+                              : (tx.currentDues ?? (tx.previousDues + tx.amount)) < 0
+                              ? '#10b981'
+                              : '#f59e0b',
+                          }}
+                        >
+                          {(tx.currentDues ?? (tx.previousDues + tx.amount)) === 0
+                            ? '₹0.00 (Settled)'
+                            : (tx.currentDues ?? (tx.previousDues + tx.amount)) < 0
+                            ? `+ ${fmtCurrency(tx.currentDues ?? (tx.previousDues + tx.amount))} (Advance)`
+                            : `${fmtCurrency(tx.currentDues ?? (tx.previousDues + tx.amount))} (Due)`}
+                        </Text>
                       </View>
-                    </View>
+                    ) : null}
                   </View>
                 ) : (
                   <View style={styles.paymentContent}>
                     <View style={styles.paymentMainRow}>
                       <View>
                         <Text style={[styles.paymentAmount, { color: '#10b981' }]}>
-                          -{fmtCurrency(tx.amount)}
+                          {fmtCurrency(tx.amount)}
                         </Text>
                         <Text style={[styles.paymentSub, { color: colors.textMuted }]}>
                           Mode: {tx.paymentMode || 'Direct Cash'}
                         </Text>
+                        {tx.previousDues !== undefined ? (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 3, marginTop: 3 }}>
+                            <Text style={{ fontSize: 11, color: colors.textMuted }}>Balance:</Text>
+                            <Text style={{ fontSize: 11, color: tx.previousDues < 0 ? '#10b981' : colors.textMuted, fontWeight: tx.previousDues < 0 ? '700' : '500' }}>
+                              {tx.previousDues < 0 ? `+ ${fmtCurrency(tx.previousDues)}` : fmtCurrency(tx.previousDues)}
+                            </Text>
+                            <Text style={{ fontSize: 11, color: colors.textMuted }}>→</Text>
+                            <Text
+                              style={{
+                                fontSize: 11,
+                                fontWeight: '800',
+                                color: (tx.currentDues ?? (tx.previousDues - tx.amount)) === 0
+                                  ? '#10b981'
+                                  : (tx.currentDues ?? (tx.previousDues - tx.amount)) < 0
+                                  ? '#10b981'
+                                  : '#f59e0b',
+                              }}
+                            >
+                              {(tx.currentDues ?? (tx.previousDues - tx.amount)) === 0
+                                ? '₹0.00 (Settled)'
+                                : (tx.currentDues ?? (tx.previousDues - tx.amount)) < 0
+                                ? `+ ${fmtCurrency(tx.currentDues ?? (tx.previousDues - tx.amount))} (Advance)`
+                                : `${fmtCurrency(tx.currentDues ?? (tx.previousDues - tx.amount))} (Due)`}
+                            </Text>
+                          </View>
+                        ) : null}
                       </View>
                     </View>
 
@@ -466,7 +526,7 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
                               </Text>
                               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                                 <Text style={styles.minimalPaymentAmount}>
-                                  -{fmtCurrency(p.amount)}
+                                  {fmtCurrency(p.amount)}
                                 </Text>
                                 <TouchableOpacity
                                   onPress={() => openReceipt(p as any)}
@@ -516,6 +576,7 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+      )}
 
       {/* Receipt Modal */}
       {selectedTx && (
@@ -538,6 +599,8 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
         initialDeliveryId={preselectedDeliveryId}
         deliveries={transactions}
         onSuccess={async (_tx) => {
+          const msg = (_tx as any)?.serverMessage || 'Transaction created successfully.';
+          setToastMsg(msg);
           await invalidateTransactions(sellerId);
           refetch();
         }}

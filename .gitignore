@@ -29,3 +29,8 @@ yarn-error.log*
 # Operating System Files
 .DS_Store
 Thumbs.db
+
+# Messaging and Notification Services (Kept aside for future dedicated PR)
+*whatsapp*
+*twilio*
+

@@ -10,7 +10,6 @@ export interface GetSellersResponse {
     totalDues: number;
     tank500: number;
     tank1000: number;
-    tank2000: number;
   };
 }
 
@@ -22,7 +21,6 @@ export interface SellerDetailData {
     totalDues: number;
     tank500: number;
     tank1000: number;
-    tank2000: number;
   };
   transactions: Transaction[];
   pagination: PaginationInfo;
@@ -53,11 +51,9 @@ export const getSellersApi = async (params?: {
       totalDues: sellers.reduce((acc: number, s: any) => acc + (s.totalDues || 0), 0),
       tank500: sellers.reduce((acc: number, s: any) => acc + (s.tank500 || 0), 0),
       tank1000: sellers.reduce((acc: number, s: any) => acc + (s.tank1000 || 0), 0),
-      tank2000: sellers.reduce((acc: number, s: any) => acc + (s.tank2000 || 0), 0),
       totalTank500: sellers.reduce((acc: number, s: any) => acc + (s.tank500 || 0), 0),
       totalTank1000: sellers.reduce((acc: number, s: any) => acc + (s.tank1000 || 0), 0),
-      totalTank2000: sellers.reduce((acc: number, s: any) => acc + (s.tank2000 || 0), 0),
-      totalTanks: sellers.reduce((acc: number, s: any) => acc + (s.tank500 || 0) + (s.tank1000 || 0) + (s.tank2000 || 0), 0),
+      totalTanks: sellers.reduce((acc: number, s: any) => acc + (s.tank500 || 0) + (s.tank1000 || 0), 0),
     };
 
     return {
@@ -69,7 +65,6 @@ export const getSellersApi = async (params?: {
         totalDues: summary.totalDues || 0,
         tank500: summary.totalTank500 !== undefined ? summary.totalTank500 : (summary.tank500 || 0),
         tank1000: summary.totalTank1000 !== undefined ? summary.totalTank1000 : (summary.tank1000 || 0),
-        tank2000: summary.totalTank2000 !== undefined ? summary.totalTank2000 : (summary.tank2000 || 0),
       },
     };
   }
@@ -94,7 +89,6 @@ export const getSellerByIdApi = async (
     const totalDues = sellerObj.totalDues !== undefined ? sellerObj.totalDues : (totalDeliveries - totalPaid);
     const tank500 = sellerObj.tank500 || 0;
     const tank1000 = sellerObj.tank1000 || 0;
-    const tank2000 = sellerObj.tank2000 || 0;
 
     return {
       seller: {
@@ -107,7 +101,6 @@ export const getSellerByIdApi = async (
         totalDues,
         tank500,
         tank1000,
-        tank2000,
       },
       transactions,
       pagination: sellerObj.pagination || raw.pagination || {
@@ -130,14 +123,15 @@ export const createSellerApi = async (data: {
   address?: string;
   gstNumber?: string;
   requireAdditional?: boolean;
-}): Promise<Seller> => {
+}): Promise<Seller & { serverMessage?: string }> => {
   try {
     const response = await apiClient.post<any>('/sellers', data);
     if (response.data && response.data.success !== false) {
       const raw = response.data.seller || response.data.data?.seller || response.data.data || response.data;
-      const created: Seller = {
+      const created: Seller & { serverMessage?: string } = {
         ...raw,
         id: raw._id || raw.id,
+        serverMessage: response.data.message || response.data.data?.message,
       };
       return created;
     }
@@ -157,19 +151,37 @@ export const updateSellerApi = async (
     address?: string;
     gstNumber?: string;
   }
-): Promise<Seller> => {
-  const response = await apiClient.put<ApiResponse<Seller>>(`/sellers/${id}`, data);
-  if (response.data.success && response.data.data) {
-    const updated = response.data.data;
-    updated.id = updated._id || updated.id;
-    return updated;
+): Promise<Seller & { serverMessage?: string }> => {
+  try {
+    const response = await apiClient.put<any>(`/sellers/${id}`, data);
+    if (response.data && response.data.success !== false) {
+      const raw = response.data.data?.seller || response.data.data || response.data.seller;
+      const updated: Seller & { serverMessage?: string } = {
+        ...raw,
+        id: raw._id || raw.id,
+        serverMessage: response.data.message || response.data.data?.message,
+      };
+      return updated;
+    }
+    throw new Error(response.data?.message || response.data?.error || 'Failed to update vendor');
+  } catch (err: any) {
+    const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to update vendor';
+    throw new Error(msg);
   }
-  throw new Error(response.data.message || 'Failed to update vendor');
 };
 
-export const deleteSellerApi = async (id: string): Promise<void> => {
-  const response = await apiClient.delete<ApiResponse<any>>(`/sellers/${id}`);
-  if (!response.data.success) {
-    throw new Error(response.data.message || 'Failed to delete vendor');
+export const deleteSellerApi = async (id: string): Promise<{ success: boolean; message: string }> => {
+  try {
+    const response = await apiClient.delete<any>(`/sellers/${id}`);
+    if (response.data && response.data.success !== false) {
+      return {
+        success: true,
+        message: response.data.message || 'Seller and associated transactions deleted successfully.',
+      };
+    }
+    throw new Error(response.data?.message || response.data?.error || 'Failed to delete vendor');
+  } catch (err: any) {
+    const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to delete vendor';
+    throw new Error(msg);
   }
 };

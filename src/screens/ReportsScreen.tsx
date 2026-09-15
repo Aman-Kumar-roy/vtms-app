@@ -97,25 +97,66 @@ const PRESETS: DatePreset[] = [
       label: 'All Time History',
     }),
   },
+  {
+    id: 'custom',
+    label: 'Custom Range',
+    getRange: () => ({
+      label: 'Custom Range',
+    }),
+  },
 ];
 
-type SortKey = 'totalOrders' | 'sellerName' | 'total500' | 'total1000' | 'total2000';
+const formatDateShort = (ymd: string) => {
+  if (!ymd || !ymd.includes('-')) return '';
+  const [y, m, d] = ymd.split('-');
+  const dt = new Date(Number(y), Number(m) - 1, Number(d));
+  return dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+type SortKey = 'totalOrders' | 'sellerName' | 'total500' | 'total1000';
 
 import { ReportsSkeleton } from '../components/Shimmer';
 import { queryClient, QUERY_KEYS } from '../query/queryClient';
+import { DatePickerField } from '../components/ui/DatePickerField';
 
 export const ReportsScreen = ({ navigation, isEmbedded = false, isActive = true }: any) => {
-  const { colors } = useTheme();
+  const { theme, colors } = useTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Filter state
   const [activePresetId, setActivePresetId] = useState<string>('this_month');
+
+  const [customStartDate, setCustomStartDate] = useState<string>(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    return toYMD(start);
+  });
+
+  const [customEndDate, setCustomEndDate] = useState<string>(() => {
+    const now = new Date();
+    return toYMD(now);
+  });
 
   const activePreset = useMemo(() => {
     return PRESETS.find((p) => p.id === activePresetId) || PRESETS[0];
   }, [activePresetId]);
 
   const activeParams = useMemo(() => {
+    if (activePresetId === 'custom') {
+      let s = customStartDate;
+      let e = customEndDate;
+      if (s && e && s > e) {
+        const temp = s;
+        s = e;
+        e = temp;
+      }
+      const params: { startDate?: string; endDate?: string } = {};
+      if (s && e) {
+        params.startDate = s;
+        params.endDate = e;
+      }
+      return params;
+    }
     const range = activePreset.getRange();
     const params: { startDate?: string; endDate?: string } = {};
     if (range.startDate && range.endDate) {
@@ -123,7 +164,17 @@ export const ReportsScreen = ({ navigation, isEmbedded = false, isActive = true 
       params.endDate = range.endDate;
     }
     return params;
-  }, [activePreset]);
+  }, [activePreset, activePresetId, customStartDate, customEndDate]);
+
+  const activePeriodLabel = useMemo(() => {
+    if (activePresetId === 'custom') {
+      if (customStartDate && customEndDate) {
+        return `${formatDateShort(customStartDate)} – ${formatDateShort(customEndDate)}`;
+      }
+      return 'Custom Range';
+    }
+    return activePreset.getRange().label;
+  }, [activePreset, activePresetId, customStartDate, customEndDate]);
 
   // Read initial cache if present
   const initialCached = queryClient.getQueryData<TankReportResponse>(
@@ -138,13 +189,7 @@ export const ReportsScreen = ({ navigation, isEmbedded = false, isActive = true 
   const [sortKey, setSortKey] = useState<SortKey>('totalOrders');
   const [sortAsc, setSortAsc] = useState<boolean>(false);
 
-  const loadTankReport = useCallback(async (preset: DatePreset, isPullRefresh = false) => {
-    const range = preset.getRange();
-    const params: { startDate?: string; endDate?: string } = {};
-    if (range.startDate && range.endDate) {
-      params.startDate = range.startDate;
-      params.endDate = range.endDate;
-    }
+  const loadTankReport = useCallback(async (params: { startDate?: string; endDate?: string }, periodLabel: string, isPullRefresh = false) => {
     const queryKey = QUERY_KEYS.tankReports(params);
     const cached = queryClient.getQueryData<TankReportResponse>(queryKey);
 
@@ -164,7 +209,7 @@ export const ReportsScreen = ({ navigation, isEmbedded = false, isActive = true 
           const data = await getTankSummaryReportApi(params);
           return {
             ...data,
-            period: range.label,
+            period: periodLabel,
           };
         },
         staleTime: 60 * 1000,
@@ -178,10 +223,10 @@ export const ReportsScreen = ({ navigation, isEmbedded = false, isActive = true 
     }
   }, []);
 
-  // Fetch whenever active preset changes
+  // Fetch whenever activeParams or period label changes
   useEffect(() => {
-    loadTankReport(activePreset);
-  }, [activePreset, loadTankReport]);
+    loadTankReport(activeParams, activePeriodLabel);
+  }, [activeParams, activePeriodLabel, loadTankReport]);
 
   // Revalidate on screen focus (skip initial mount to avoid duplicate fetch)
   const isFirstMountRef = useRef(true);
@@ -191,21 +236,21 @@ export const ReportsScreen = ({ navigation, isEmbedded = false, isActive = true 
         isFirstMountRef.current = false;
         return;
       }
-      loadTankReport(activePreset);
-    }, [activePreset, loadTankReport])
+      loadTankReport(activeParams, activePeriodLabel);
+    }, [activeParams, activePeriodLabel, loadTankReport])
   );
 
   // Revalidate only when tab transitions from inactive to active
   const prevActiveRef = useRef(isActive);
   useEffect(() => {
     if (isActive && !prevActiveRef.current) {
-      loadTankReport(activePreset);
+      loadTankReport(activeParams, activePeriodLabel);
     }
     prevActiveRef.current = isActive;
-  }, [isActive, activePreset, loadTankReport]);
+  }, [isActive, activeParams, activePeriodLabel, loadTankReport]);
 
   const onRefresh = () => {
-    loadTankReport(activePreset, true);
+    loadTankReport(activeParams, activePeriodLabel, true);
   };
 
   const handleSelectPreset = (preset: DatePreset) => {
@@ -244,13 +289,14 @@ export const ReportsScreen = ({ navigation, isEmbedded = false, isActive = true 
     return {
       t500: rows.reduce((s, r) => s + (r.total500 || 0), 0),
       t1000: rows.reduce((s, r) => s + (r.total1000 || 0), 0),
-      t2000: rows.reduce((s, r) => s + (r.total2000 || 0), 0),
       total: rows.reduce((s, r) => s + (r.totalOrders || 0), 0),
     };
   }, [rows]);
 
   return (
     <AnimatedScreenWrapper
+      direction={isEmbedded ? 'none' : 'up'}
+      showTopLoader={!isEmbedded}
       style={[
         styles.container,
         { backgroundColor: colors.bgPrimary },
@@ -333,6 +379,38 @@ export const ReportsScreen = ({ navigation, isEmbedded = false, isActive = true 
           })}
         </ScrollView>
 
+        {/* ── Custom Date Range Inputs (When Custom Range is Active) ── */}
+        {activePresetId === 'custom' && (
+          <View style={[styles.customRangeCard, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
+            <View style={styles.customRangeHeader}>
+              <Ionicons name="options-outline" size={14} color="#38bdf8" style={{ marginRight: 6 }} />
+              <Text style={[styles.customRangeTitle, { color: colors.textPrimary }]}>Custom Date Range</Text>
+            </View>
+
+            <View style={styles.customRangeFields}>
+              <View style={{ flex: 1 }}>
+                <DatePickerField
+                  label="START DATE"
+                  value={customStartDate}
+                  onChange={(val) => setCustomStartDate(val)}
+                  required={false}
+                  inputBackground={colors.bgSecondary}
+                />
+              </View>
+              <View style={{ width: 10 }} />
+              <View style={{ flex: 1 }}>
+                <DatePickerField
+                  label="END DATE"
+                  value={customEndDate}
+                  onChange={(val) => setCustomEndDate(val)}
+                  required={false}
+                  inputBackground={colors.bgSecondary}
+                />
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* ── Period Summary Banner ── */}
         <View style={[styles.periodBanner, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
           <View style={styles.periodTop}>
@@ -342,14 +420,14 @@ export const ReportsScreen = ({ navigation, isEmbedded = false, isActive = true 
             <View style={styles.periodTitles}>
               <Text style={[styles.periodLabel, { color: colors.textMuted }]}>ACTIVE REPORT PERIOD</Text>
               <Text style={[styles.periodValue, { color: colors.textPrimary }]}>
-                {tankReport?.period || activePreset.getRange().label}
+                {activePeriodLabel}
               </Text>
             </View>
           </View>
 
           <View style={styles.periodDivider} />
 
-          {/* Itemized 3 Strict Tank Capacities (500L, 1000L, 2000L) */}
+          {/* Itemized 2 Strict Tank Capacities (500L, 1000L) */}
           <View style={styles.tankCountsGrid}>
             <View style={[styles.tankCol, { backgroundColor: colors.bgSecondary, borderColor: colors.borderSubtle }]}>
               <Text style={[styles.tankColLabel, { color: colors.textMuted }]}>500 L</Text>
@@ -359,11 +437,6 @@ export const ReportsScreen = ({ navigation, isEmbedded = false, isActive = true 
             <View style={[styles.tankCol, { backgroundColor: colors.bgSecondary, borderColor: colors.borderSubtle }]}>
               <Text style={[styles.tankColLabel, { color: colors.textMuted }]}>1,000 L</Text>
               <Text style={[styles.tankColCount, { color: '#818cf8' }]}>{periodTotals.t1000}</Text>
-            </View>
-
-            <View style={[styles.tankCol, { backgroundColor: colors.bgSecondary, borderColor: colors.borderSubtle }]}>
-              <Text style={[styles.tankColLabel, { color: colors.textMuted }]}>2,000 L</Text>
-              <Text style={[styles.tankColCount, { color: '#a855f7' }]}>{periodTotals.t2000}</Text>
             </View>
 
             <View style={[styles.tankCol, { backgroundColor: 'rgba(2, 132, 199, 0.12)', borderColor: 'rgba(2, 132, 199, 0.3)' }]}>
@@ -448,18 +521,7 @@ export const ReportsScreen = ({ navigation, isEmbedded = false, isActive = true 
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => handleSort('total2000')}
-              style={[
-                styles.sortChip,
-                sortKey === 'total2000' && { backgroundColor: 'rgba(2, 132, 199, 0.2)', borderColor: colors.accentHover },
-                { borderColor: colors.borderSubtle },
-              ]}
-            >
-              <Text style={[styles.sortChipText, { color: sortKey === 'total2000' ? colors.accentHover : colors.textSecondary }]}>
-                2,000L {sortKey === 'total2000' ? (sortAsc ? '↑' : '↓') : ''}
-              </Text>
-            </TouchableOpacity>
+
           </ScrollView>
         </View>
 
@@ -504,9 +566,9 @@ export const ReportsScreen = ({ navigation, isEmbedded = false, isActive = true 
                 <View style={styles.vendorCardTop}>
                   <View style={[
                     styles.rankBadge,
-                    idx === 0 ? styles.rank1 : idx === 1 ? styles.rank2 : idx === 2 ? styles.rank3 : styles.rankOther,
+                    idx === 0 ? styles.rank1 : idx === 1 ? styles.rank2 : idx === 2 ? styles.rank3 : { backgroundColor: colors.bgElevated },
                   ]}>
-                    <Text style={styles.rankText}>#{idx + 1}</Text>
+                    <Text style={[styles.rankText, idx > 2 && { color: colors.textSecondary }]}>#{idx + 1}</Text>
                   </View>
 
                   <View style={styles.vendorNameCol}>
@@ -518,27 +580,22 @@ export const ReportsScreen = ({ navigation, isEmbedded = false, isActive = true 
                     </Text>
                   </View>
 
-                  <View style={styles.vendorTotalBadge}>
-                    <Text style={styles.vendorTotalLabel}>TOTAL</Text>
-                    <Text style={styles.vendorTotalValue}>{row.totalOrders}</Text>
+                  <View style={[styles.vendorTotalBadge, { backgroundColor: colors.accentLight }]}>
+                    <Text style={[styles.vendorTotalLabel, { color: theme === 'dark' ? '#38bdf8' : colors.accent }]}>TOTAL</Text>
+                    <Text style={[styles.vendorTotalValue, { color: theme === 'dark' ? '#38bdf8' : colors.accent }]}>{row.totalOrders}</Text>
                   </View>
                 </View>
 
                 {/* Breakdown Chips */}
                 <View style={[styles.vendorBreakdownRow, { borderTopColor: colors.borderSubtle }]}>
-                  <View style={[styles.unitChip, { backgroundColor: 'rgba(56, 189, 248, 0.1)' }]}>
-                    <Text style={[styles.unitChipLabel, { color: '#38bdf8' }]}>500L:</Text>
-                    <Text style={[styles.unitChipVal, { color: '#38bdf8' }]}>{row.total500}</Text>
+                  <View style={[styles.unitChip, { backgroundColor: colors.accentLight }]}>
+                    <Text style={[styles.unitChipLabel, { color: theme === 'dark' ? '#38bdf8' : colors.accent }]}>500L:</Text>
+                    <Text style={[styles.unitChipVal, { color: theme === 'dark' ? '#38bdf8' : colors.accent }]}>{row.total500}</Text>
                   </View>
 
-                  <View style={[styles.unitChip, { backgroundColor: 'rgba(129, 140, 248, 0.1)' }]}>
-                    <Text style={[styles.unitChipLabel, { color: '#818cf8' }]}>1,000L:</Text>
-                    <Text style={[styles.unitChipVal, { color: '#818cf8' }]}>{row.total1000}</Text>
-                  </View>
-
-                  <View style={[styles.unitChip, { backgroundColor: 'rgba(168, 85, 247, 0.1)' }]}>
-                    <Text style={[styles.unitChipLabel, { color: '#a855f7' }]}>2,000L:</Text>
-                    <Text style={[styles.unitChipVal, { color: '#a855f7' }]}>{row.total2000}</Text>
+                  <View style={[styles.unitChip, { backgroundColor: theme === 'dark' ? 'rgba(129, 140, 248, 0.15)' : 'rgba(99, 102, 241, 0.08)' }]}>
+                    <Text style={[styles.unitChipLabel, { color: theme === 'dark' ? '#818cf8' : '#4f46e5' }]}>1,000L:</Text>
+                    <Text style={[styles.unitChipVal, { color: theme === 'dark' ? '#818cf8' : '#4f46e5' }]}>{row.total1000}</Text>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -598,6 +655,26 @@ const styles = StyleSheet.create({
   presetChipText: {
     fontSize: 12,
   },
+  customRangeCard: {
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  customRangeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  customRangeTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  customRangeFields: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
   periodBanner: {
     borderRadius: 16,
     padding: 14,
@@ -655,6 +732,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     marginTop: 2,
+    fontVariant: ['tabular-nums'],
   },
   controlsRow: {
     marginBottom: 10,
@@ -789,6 +867,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: '#38bdf8',
+    fontVariant: ['tabular-nums'],
   },
   vendorBreakdownRow: {
     flexDirection: 'row',
@@ -813,5 +892,6 @@ const styles = StyleSheet.create({
   unitChipVal: {
     fontSize: 11,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
 });

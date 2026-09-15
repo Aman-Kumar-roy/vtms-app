@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Modal,
   View,
@@ -6,13 +6,13 @@ import {
   StyleSheet,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  Alert,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Colors } from '../constants/theme';
+import { SignOutConfirmModal } from './SignOutConfirmModal';
 
 interface ProfileModalProps {
   visible: boolean;
@@ -21,17 +21,18 @@ interface ProfileModalProps {
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose }) => {
   const { user, logout } = useAuth();
-  const { colors } = useTheme();
+  const { colors, theme, setTheme } = useTheme();
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
   if (!visible) return null;
 
   const initials = user?.name
     ? user.name
-        .split(' ')
-        .map((n) => n[0])
-        .slice(0, 2)
-        .join('')
-        .toUpperCase()
+      .split(' ')
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase()
     : 'AD';
 
   const userRole = (user?.role || 'Administrator').toUpperCase();
@@ -39,22 +40,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose }) 
   const userEmail = user?.email || 'admin@vasudhapolymer.com';
 
   const handleLogout = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out of your account?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: () => {
-            onClose();
-            logout();
-          },
-        },
-      ],
-      { cancelable: true }
-    );
+    setShowSignOutConfirm(true);
   };
 
   return (
@@ -66,7 +52,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose }) 
     >
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.backdrop}>
-          <TouchableWithoutFeedback onPress={() => {}}>
+          <TouchableWithoutFeedback onPress={() => { }}>
             <View
               style={[
                 styles.modalCard,
@@ -134,6 +120,51 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose }) 
                 </View>
               </View>
 
+              {/* Theme Preferences */}
+              <View style={[styles.infoContainer, { backgroundColor: colors.bgSecondary, borderColor: colors.borderSubtle, marginTop: 10 }]}>
+                <View style={[styles.infoRow, { alignItems: 'center', justifyContent: 'space-between' }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons
+                      name={theme === 'dark' ? 'moon' : 'sunny'}
+                      size={18}
+                      color={theme === 'dark' ? '#38bdf8' : '#f59e0b'}
+                    />
+                    <View>
+                      <Text style={[styles.infoLabel, { color: colors.textPrimary, fontWeight: '700', fontSize: 13 }]}>
+                        Appearance
+                      </Text>
+                      <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 1 }}>
+                        {theme === 'dark' ? 'Dark Mode (Active)' : 'Light Mode (Active)'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={[styles.segmentedToggle, { backgroundColor: colors.bgPrimary, borderColor: colors.borderSubtle }]}>
+                    <TouchableOpacity
+                      style={[
+                        styles.segmentBtn,
+                        theme === 'dark' && { backgroundColor: colors.accent, borderColor: colors.accent },
+                      ]}
+                      onPress={() => setTheme('dark')}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="moon" size={12} color={theme === 'dark' ? '#ffffff' : colors.textMuted} style={{ marginRight: 4 }} />
+                      <Text style={[styles.segmentBtnText, { color: theme === 'dark' ? '#ffffff' : colors.textMuted }]}>Dark</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.segmentBtn,
+                        theme === 'light' && { backgroundColor: colors.accent, borderColor: colors.accent },
+                      ]}
+                      onPress={() => setTheme('light')}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="sunny" size={12} color={theme === 'light' ? '#ffffff' : colors.textMuted} style={{ marginRight: 4 }} />
+                      <Text style={[styles.segmentBtnText, { color: theme === 'light' ? '#ffffff' : colors.textMuted }]}>Light</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+
               {/* Sign Out Button */}
               <TouchableOpacity
                 style={styles.logoutBtn}
@@ -147,6 +178,18 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose }) 
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
+
+      {/* Custom Sleek Sign Out Confirmation Dialog */}
+      <SignOutConfirmModal
+        visible={showSignOutConfirm}
+        onClose={() => setShowSignOutConfirm(false)}
+        onConfirm={() => {
+          setShowSignOutConfirm(false);
+          onClose();
+          logout();
+        }}
+        user={user}
+      />
     </Modal>
   );
 };
@@ -299,6 +342,38 @@ const styles = StyleSheet.create({
   logoutBtnText: {
     color: '#ef4444',
     fontSize: 14,
+    fontWeight: '700',
+  },
+  themePillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  themePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  segmentedToggle: {
+    flexDirection: 'row',
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 3,
+    gap: 4,
+  },
+  segmentBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  segmentBtnText: {
+    fontSize: 11,
     fontWeight: '700',
   },
 });

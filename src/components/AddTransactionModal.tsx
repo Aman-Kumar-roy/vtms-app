@@ -15,9 +15,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { createTransactionApi, getTransactionsApi } from '../api/transaction';
 import { invalidateTransactions } from '../query/queryClient';
 import { Seller, Transaction } from '../types';
-import { TankSelector } from './TankSelector';
+import { TankSelector, TankLineItem } from './TankSelector';
 import { ReceiptModal } from './ReceiptModal';
 import { DatePickerField } from './ui/DatePickerField';
+import { ToastNotification } from './ToastNotification';
 import { useTheme } from '../context/ThemeContext';
 import { Colors } from '../constants/theme';
 
@@ -57,10 +58,10 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [paymentMode, setPaymentMode] = useState<string>('UPI');
   const [parentId, setParentId] = useState<string>('');
 
-  // Strict tank sizes: 500L, 1000L, 2000L ONLY
-  const [tank500, setTank500] = useState<number>(0);
-  const [tank1000, setTank1000] = useState<number>(0);
-  const [tank2000, setTank2000] = useState<number>(0);
+  // Strict tank sizes: 500L, 1000L with flexible line items, layers (3-6) & foam
+  const [tankLineItems, setTankLineItems] = useState<TankLineItem[]>([
+    { id: '1', size: 500, quantity: 1, layers: 3, foam: 'none' },
+  ]);
 
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
   const [serverError, setServerError] = useState<string | null>(null);
@@ -70,6 +71,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [createdTx, setCreatedTx] = useState<Transaction | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [localDeliveries, setLocalDeliveries] = useState<Transaction[]>([]);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) {
@@ -88,9 +90,9 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       setDate(new Date().toISOString().split('T')[0]);
       setNote('');
       setPaymentMode('UPI');
-      setTank500(0);
-      setTank1000(0);
-      setTank2000(0);
+      setTankLineItems([
+        { id: Math.random().toString(36).substring(2, 9), size: 500, quantity: 1, layers: 3, foam: 'none' },
+      ]);
       setFieldErrors({});
       setServerError(null);
       setLoading(false);
@@ -131,13 +133,27 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     if (newType === 'DELIVERY') {
       setParentId('');
     } else {
-      setTank500(0);
-      setTank1000(0);
-      setTank2000(0);
+      setTankLineItems([
+        { id: Math.random().toString(36).substring(2, 9), size: 500, quantity: 1, layers: 3, foam: 'none' },
+      ]);
     }
   };
 
-  const totalUnits = (tank500 || 0) + (tank1000 || 0) + (tank2000 || 0);
+  const total500 = tankLineItems
+    .filter((t) => t.size === 500)
+    .reduce((acc, t) => acc + (t.quantity || 0), 0);
+  const total1000 = tankLineItems
+    .filter((t) => t.size === 1000)
+    .reduce((acc, t) => acc + (t.quantity || 0), 0);
+  const totalUnits = type === 'DELIVERY' ? total500 + total1000 : 0;
+
+  const itemizedSummary = tankLineItems
+    .filter((t) => (t.quantity || 0) > 0)
+    .map((t) => {
+      const foamStr = t.size === 1000 && t.foam !== 'none' ? `, ${t.foam} foam` : '';
+      return `${t.quantity}× ${t.size}L (${t.layers}L${foamStr})`;
+    })
+    .join(' • ');
 
   const activeSeller = seller || sellers.find((s) => (s._id || s.id) === selectedSellerId);
 
@@ -154,9 +170,9 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     setAmount('');
     setNote('');
     setParentId('');
-    setTank500(0);
-    setTank1000(0);
-    setTank2000(0);
+    setTankLineItems([
+      { id: Math.random().toString(36).substring(2, 9), size: 500, quantity: 1, layers: 3, foam: 'none' },
+    ]);
     setFieldErrors({});
     setServerError(null);
   };
@@ -180,11 +196,34 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       errs.date = 'Transaction date is required';
     }
 
+    if (type === 'DELIVERY') {
+      for (let i = 0; i < tankLineItems.length; i++) {
+        const item = tankLineItems[i];
+        if (!item.quantity || item.quantity <= 0) {
+          errs.tanks = `Tank Variant #${i + 1}: Please enter a valid quantity greater than 0.`;
+          break;
+        }
+        if (!item.layers || item.layers < 3 || item.layers > 6) {
+          errs.tanks = `Tank Variant #${i + 1}: Layers must be between 3 and 6.`;
+          break;
+        }
+      }
+    }
+
     setFieldErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
     setLoading(true);
     try {
+      const formattedItems = tankLineItems
+        .filter((t) => (t.quantity || 0) > 0)
+        .map((t) => ({
+          size: t.size,
+          quantity: t.quantity,
+          layers: t.layers,
+          foam: t.size === 1000 ? t.foam : 'none',
+        }));
+
       const tx = await createTransactionApi({
         sellerId: selectedSellerId,
         parentId: type === 'PAYMENT' && parentId ? parentId : undefined,
@@ -192,25 +231,26 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         amount: numAmount,
         date,
         note: note.trim() || undefined,
-        tank500: type === 'DELIVERY' ? tank500 : 0,
-        tank1000: type === 'DELIVERY' ? tank1000 : 0,
-        tank2000: type === 'DELIVERY' ? tank2000 : 0,
+        tankItems: type === 'DELIVERY' && formattedItems.length > 0 ? formattedItems : undefined,
+        tank500: type === 'DELIVERY' ? total500 : 0,
+        tank1000: type === 'DELIVERY' ? total1000 : 0,
         paymentMode: type === 'PAYMENT' ? paymentMode : undefined,
       });
 
       await invalidateTransactions(selectedSellerId);
       setCreatedTx(tx);
-      setShowReceipt(true);
+      const successMessage = (tx as any)?.serverMessage || (type === 'DELIVERY' ? 'Delivery recorded successfully.' : 'Payment settlement recorded successfully.');
+      setToastMsg(successMessage);
       onSuccess(tx);
     } catch (e: any) {
-      setServerError(e.message || 'Failed to record transaction');
+      setServerError(e.message);
     } finally {
       setLoading(false);
     }
   };
 
   const fmtCurrency = (val: number) => {
-    return '₹' + Number(val || 0).toLocaleString('en-IN', {
+    return '₹' + Math.abs(Number(val || 0)).toLocaleString('en-IN', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
@@ -248,16 +288,16 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             {/* Header */}
             <View style={[styles.modalHeader, { borderBottomColor: colors.borderSubtle }]}>
               <View style={styles.titleGroup}>
-                <View style={[styles.iconCircle, { backgroundColor: type === 'DELIVERY' ? 'rgba(2, 132, 199, 0.15)' : 'rgba(16, 185, 129, 0.15)' }]}>
+                <View style={[styles.iconCircle, { backgroundColor: createdTx ? 'rgba(16, 185, 129, 0.15)' : type === 'DELIVERY' ? 'rgba(2, 132, 199, 0.15)' : 'rgba(16, 185, 129, 0.15)' }]}>
                   <Ionicons
-                    name={type === 'DELIVERY' ? 'cube' : 'cash'}
+                    name={createdTx ? 'checkmark-circle' : type === 'DELIVERY' ? 'cube' : 'cash'}
                     size={18}
-                    color={type === 'DELIVERY' ? '#0284c7' : '#10b981'}
+                    color={createdTx ? '#10b981' : type === 'DELIVERY' ? '#0284c7' : '#10b981'}
                   />
                 </View>
                 <View>
                   <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                    {type === 'DELIVERY' ? 'Record Delivery' : 'Record Payment'}
+                    {createdTx ? 'Transaction Confirmed' : type === 'DELIVERY' ? 'Record Delivery' : 'Record Payment'}
                   </Text>
                   <Text style={[styles.modalSubtitle, { color: colors.textMuted }]}>
                     {activeSeller ? activeSeller.name : 'Record Transaction'}
@@ -269,7 +309,66 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               </TouchableOpacity>
             </View>
 
-            {/* Transaction Creation Form */}
+            {createdTx ? (
+              <ScrollView style={styles.formScroll} contentContainerStyle={{ paddingBottom: 28, alignItems: 'center' }}>
+                <View style={[styles.successIconCircle, { backgroundColor: 'rgba(16, 185, 129, 0.15)', borderColor: 'rgba(16, 185, 129, 0.35)' }]}>
+                  <Ionicons name="checkmark-circle" size={52} color="#10b981" />
+                </View>
+
+                <Text style={[styles.successTitle, { color: colors.textPrimary }]}>
+                  {type === 'DELIVERY' ? 'Delivery Order Recorded' : 'Payment Settlement Recorded'}
+                </Text>
+                <Text style={[styles.successSubtitle, { color: colors.textMuted }]}>
+                  Official server voucher has been generated and ledger updated.
+                </Text>
+
+                <View style={[styles.voucherBadge, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
+                  <Text style={[styles.voucherLabel, { color: colors.textMuted }]}>SERVER VOUCHER NUMBER</Text>
+                  <Text style={[styles.voucherNumber, { color: colors.accentHover }]}>
+                    {createdTx.receipt?.receiptNo || (createdTx.receipt as any)?.receiptNumber || `RCP-${(createdTx._id || createdTx.id || '').slice(-8).toUpperCase()}`}
+                  </Text>
+                </View>
+
+                <View style={[styles.liveSummaryBox, { width: '100%', backgroundColor: colors.bgCard, borderColor: colors.borderSubtle, marginTop: 12 }]}>
+                  <View style={styles.liveSummaryHeader}>
+                    <Text style={[styles.liveSummaryTitle, { color: colors.textMuted }]}>SETTLEMENT CONFIRMATION</Text>
+                    <Text style={[styles.liveSummaryVendor, { color: colors.accentHover }]}>{activeSeller?.name || 'Vendor'}</Text>
+                  </View>
+                  <View style={styles.liveSummaryRow}>
+                    <Text style={[styles.liveSummaryLabel, { color: colors.textMuted }]}>Transaction Mode:</Text>
+                    <Text style={[styles.liveSummaryVal, { color: type === 'DELIVERY' ? '#0284c7' : '#10b981' }]}>
+                      {type}
+                    </Text>
+                  </View>
+                  <View style={styles.liveSummaryRow}>
+                    <Text style={[styles.liveSummaryLabel, { color: colors.textMuted }]}>Total Amount:</Text>
+                    <Text style={[styles.liveSummaryAmount, { color: type === 'DELIVERY' ? '#0284c7' : '#10b981' }]}>
+                      {fmtCurrency(createdTx.amount)}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.successActions}>
+                  <TouchableOpacity
+                    style={styles.viewReceiptBtn}
+                    onPress={() => setShowReceipt(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="receipt" size={16} color="#0284c7" style={{ marginRight: 6 }} />
+                    <Text style={styles.viewReceiptBtnText}>View Official Receipt →</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.doneBtn}
+                    onPress={handleClose}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.doneBtnText}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            ) : (
+            /* Transaction Creation Form */
             <ScrollView style={styles.formScroll} contentContainerStyle={{ paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
               {serverError ? (
                 <View style={styles.errorBanner}>
@@ -350,17 +449,13 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                   </View>
                 ) : null}
 
-                {/* Tank Units Stepper (DELIVERY ONLY) */}
+                {/* Tank Units & Line Items (DELIVERY ONLY) */}
                 {type === 'DELIVERY' && (
                   <View style={{ marginBottom: 8 }}>
                     <TankSelector
-                      tank500={tank500}
-                      tank1000={tank1000}
-                      tank2000={tank2000}
-                      onChange={(key, val) => {
-                        if (key === 'tank500') setTank500(val);
-                        if (key === 'tank1000') setTank1000(val);
-                        if (key === 'tank2000') setTank2000(val);
+                      items={tankLineItems}
+                      onChangeItems={(newItems) => {
+                        setTankLineItems(newItems);
                         if (fieldErrors.tanks) setFieldErrors((p) => ({ ...p, tanks: '' }));
                       }}
                     />
@@ -505,18 +600,28 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
 
                 {/* Note / Memo */}
                 <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: colors.textMuted }]}>
-                    MEMO / NOTE <Text style={styles.optionalText}>(Optional)</Text>
-                  </Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <Text style={[styles.label, { color: colors.textMuted, marginBottom: 0 }]}>
+                      MEMO / NOTE <Text style={styles.optionalText}>(Optional)</Text>
+                    </Text>
+                    <Text style={{ fontSize: 10, color: colors.textMuted, fontVariant: ['tabular-nums'] }}>
+                      {note.length}/500
+                    </Text>
+                  </View>
                   <TextInput
                     style={[
                       styles.input,
+                      styles.textArea,
                       { backgroundColor: colors.bgCard, color: colors.textPrimary, borderColor: colors.borderSubtle },
                     ]}
-                    placeholder={type === 'DELIVERY' ? 'Dispatch details, truck #...' : 'UPI ref, cheque #...'}
+                    placeholder={type === 'DELIVERY' ? 'Dispatch details, truck #, special handling instructions...' : 'UPI ref, cheque #, settlement remarks...'}
                     placeholderTextColor={colors.textMuted}
                     value={note}
-                    onChangeText={setNote}
+                    onChangeText={(val) => setNote(val.slice(0, 500))}
+                    multiline={true}
+                    numberOfLines={3}
+                    maxLength={500}
+                    textAlignVertical="top"
                   />
                 </View>
 
@@ -529,21 +634,31 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                     </Text>
                   </View>
                   {type === 'DELIVERY' ? (
-                    <View style={styles.liveSummaryRow}>
-                      <Text style={[styles.liveSummaryLabel, { color: colors.textMuted }]}>Total Units:</Text>
-                      <Text style={[styles.liveSummaryVal, { color: '#0284c7' }]}>
-                        {totalUnits} Tanks (500L: {tank500} | 1000L: {tank1000} | 2000L: {tank2000})
-                      </Text>
-                    </View>
+                    <>
+                      <View style={styles.liveSummaryRow}>
+                        <Text style={[styles.liveSummaryLabel, { color: colors.textMuted }]}>Total Units:</Text>
+                        <Text style={[styles.liveSummaryVal, { color: '#0284c7' }]}>
+                          {totalUnits} Tanks
+                        </Text>
+                      </View>
+                      {itemizedSummary ? (
+                        <View style={[styles.liveSummaryRow, { alignItems: 'flex-start', marginTop: 2 }]}>
+                          <Text style={[styles.liveSummaryLabel, { color: colors.textMuted, marginRight: 8 }]}>Breakdown:</Text>
+                          <Text style={[styles.liveSummaryVal, { color: '#0284c7', flex: 1, textAlign: 'right', flexWrap: 'wrap' }]}>
+                            {itemizedSummary}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </>
                   ) : (
-                    <View style={styles.liveSummaryRow}>
-                      <Text style={[styles.liveSummaryLabel, { color: colors.textMuted }]}>Payment Settlement:</Text>
-                      <Text style={[styles.liveSummaryVal, { color: '#10b981' }]}>
+                    <View style={[styles.liveSummaryRow, { alignItems: 'flex-start' }]}>
+                      <Text style={[styles.liveSummaryLabel, { color: colors.textMuted, marginRight: 8 }]}>Payment Settlement:</Text>
+                      <Text style={[styles.liveSummaryVal, { color: '#10b981', flex: 1, textAlign: 'right', flexWrap: 'wrap' }]}>
                         {paymentMode} {parentId ? `(Linked to Delivery #${parentId.slice(-6).toUpperCase()})` : '(General Credit)'}
                       </Text>
                     </View>
                   )}
-                  <View style={[styles.liveSummaryRow, { marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: colors.borderSubtle }]}>
+                  <View style={[styles.liveSummaryRow, { marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: colors.borderSubtle }]}>
                     <Text style={[styles.liveSummaryLabel, { color: colors.textPrimary, fontWeight: '800' }]}>Total Amount:</Text>
                     <Text style={[styles.liveSummaryAmount, { color: type === 'DELIVERY' ? '#0284c7' : '#10b981' }]}>
                       {fmtCurrency(parseFloat(amount) || 0)}
@@ -579,8 +694,16 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                   )}
                 </TouchableOpacity>
               </ScrollView>
+            )}
             </View>
           </KeyboardAvoidingView>
+
+          {/* In-Modal Floating Success Toast */}
+          <ToastNotification
+            visible={!!toastMsg}
+            message={toastMsg || ''}
+            onDismiss={() => setToastMsg(null)}
+          />
         </View>
       </Modal>
 
@@ -718,8 +841,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   textArea: {
-    height: 58,
+    height: 72,
     textAlignVertical: 'top',
+    paddingTop: 10,
   },
   fieldError: {
     color: '#ef4444',
@@ -803,20 +927,47 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   // In-context success styles
-  successIconBadge: {
+  successIconCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 10,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   successTitle: {
     fontSize: 17,
     fontWeight: '800',
     textAlign: 'center',
   },
-  successSub: {
+  successSubtitle: {
     fontSize: 12,
     textAlign: 'center',
     marginTop: 4,
-    marginBottom: 18,
+    marginBottom: 16,
+  },
+  voucherBadge: {
+    width: '100%',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  voucherLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  voucherNumber: {
+    fontSize: 16,
+    fontWeight: '900',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    letterSpacing: 1,
   },
   voucherCard: {
     width: '100%',
@@ -831,7 +982,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  voucherLabel: {
+  voucherRowLabel: {
     fontSize: 12,
     fontWeight: '600',
   },

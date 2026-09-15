@@ -14,7 +14,7 @@ import { getSellersApi } from '../api/seller';
 import { createDeliveryApi } from '../api/transaction';
 import { invalidateTransactions } from '../query/queryClient';
 import { Seller, Transaction } from '../types';
-import { TankSelector } from '../components/TankSelector';
+import { TankSelector, TankLineItem } from '../components/TankSelector';
 import { NavbarHeader } from '../components/NavbarHeader';
 import { ReceiptModal } from '../components/ReceiptModal';
 import { DatePickerField } from '../components/ui/DatePickerField';
@@ -29,10 +29,10 @@ export const DeliveryFormScreen = ({ route, navigation }: any) => {
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [note, setNote] = useState<string>('');
 
-  // Strictly tank sizes: 500, 1000, 2000
-  const [tank500, setTank500] = useState<number>(0);
-  const [tank1000, setTank1000] = useState<number>(0);
-  const [tank2000, setTank2000] = useState<number>(0);
+  // Strictly tank sizes: 500, 1000 with flexible line items, layers (3-6) & foam
+  const [tankLineItems, setTankLineItems] = useState<TankLineItem[]>([
+    { id: '1', size: 500, quantity: 1, layers: 3, foam: 'none' },
+  ]);
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [loading, setLoading] = useState<boolean>(false);
@@ -66,14 +66,21 @@ export const DeliveryFormScreen = ({ route, navigation }: any) => {
     }
   }, [route?.params]);
 
-  const handleTankChange = (key: 'tank500' | 'tank1000' | 'tank2000', val: number) => {
-    if (key === 'tank500') setTank500(val);
-    if (key === 'tank1000') setTank1000(val);
-    if (key === 'tank2000') setTank2000(val);
-    if (errors.tanks) setErrors((prev) => ({ ...prev, tanks: '' }));
-  };
+  const total500 = tankLineItems
+    .filter((t) => t.size === 500)
+    .reduce((acc, t) => acc + (t.quantity || 0), 0);
+  const total1000 = tankLineItems
+    .filter((t) => t.size === 1000)
+    .reduce((acc, t) => acc + (t.quantity || 0), 0);
+  const totalUnits = total500 + total1000;
 
-  const totalUnits = (tank500 || 0) + (tank1000 || 0) + (tank2000 || 0);
+  const itemizedSummary = tankLineItems
+    .filter((t) => (t.quantity || 0) > 0)
+    .map((t) => {
+      const foamStr = t.size === 1000 && t.foam !== 'none' ? `, ${t.foam} foam` : '';
+      return `${t.quantity}× ${t.size}L (${t.layers}L${foamStr})`;
+    })
+    .join(' • ');
 
   const handleSubmit = async () => {
     const errs: { [key: string]: string } = {};
@@ -91,26 +98,47 @@ export const DeliveryFormScreen = ({ route, navigation }: any) => {
       errs.date = 'Delivery date is required';
     }
 
+    for (let i = 0; i < tankLineItems.length; i++) {
+      const item = tankLineItems[i];
+      if (!item.quantity || item.quantity <= 0) {
+        errs.tanks = `Tank Variant #${i + 1}: Please enter a valid quantity greater than 0.`;
+        break;
+      }
+      if (!item.layers || item.layers < 3 || item.layers > 6) {
+        errs.tanks = `Tank Variant #${i + 1}: Layers must be between 3 and 6.`;
+        break;
+      }
+    }
+
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
     setLoading(true);
     try {
+      const formattedItems = tankLineItems
+        .filter((t) => (t.quantity || 0) > 0)
+        .map((t) => ({
+          size: t.size,
+          quantity: t.quantity,
+          layers: t.layers,
+          foam: t.size === 1000 ? t.foam : 'none',
+        }));
+
       const tx = await createDeliveryApi({
         sellerId: (selectedSeller?._id || selectedSeller?.id)!,
         amount: numAmount,
         date,
         note: note.trim() || undefined,
-        tank500,
-        tank1000,
-        tank2000,
+        tankItems: formattedItems.length > 0 ? formattedItems : undefined,
+        tank500: total500,
+        tank1000: total1000,
       });
 
       await invalidateTransactions(selectedSeller?._id || selectedSeller?.id);
       setCreatedTransaction(tx);
       setShowReceiptModal(true);
     } catch (e: any) {
-      setErrors({ form: e.message || 'Failed to record delivery' });
+      setErrors({ form: e.message });
     } finally {
       setLoading(false);
     }
@@ -129,31 +157,23 @@ export const DeliveryFormScreen = ({ route, navigation }: any) => {
     }
   };
 
-  if (fetchingSeller) {
-    return (
-      <AnimatedScreenWrapper style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
-        <NavbarHeader
-          currentScreenTitle="Record Delivery"
-          onOpenDrawer={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Orders')}
-          navigation={navigation}
-        />
+  return (
+    <AnimatedScreenWrapper direction="none" showTopLoader={false} style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
+      <NavbarHeader
+        currentScreenTitle="Record Delivery"
+        onOpenDrawer={() => {
+          if (navigation.canGoBack()) navigation.goBack();
+          else navigation.navigate(selectedSeller ? 'SellerDetail' : 'Orders');
+        }}
+        navigation={navigation}
+      />
+
+      {fetchingSeller ? (
         <View style={styles.centerBox}>
           <ActivityIndicator size="large" color={colors.accentHover} />
           <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading vendor details...</Text>
         </View>
-      </AnimatedScreenWrapper>
-    );
-  }
-
-  // Transactions must be created inside seller context
-  if (!selectedSeller) {
-    return (
-      <AnimatedScreenWrapper style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
-        <NavbarHeader
-          currentScreenTitle="Record Delivery"
-          onOpenDrawer={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Sellers')}
-          navigation={navigation}
-        />
+      ) : !selectedSeller ? (
         <View style={[styles.card, styles.emptyCard, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
           <View style={styles.emptyIconCircle}>
             <Ionicons name="business-outline" size={36} color="#0284c7" />
@@ -171,27 +191,13 @@ export const DeliveryFormScreen = ({ route, navigation }: any) => {
             <Text style={styles.primaryActionBtnText}>Select Vendor from Directory →</Text>
           </TouchableOpacity>
         </View>
-      </AnimatedScreenWrapper>
-    );
-  }
-
-  return (
-    <AnimatedScreenWrapper style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
-      <NavbarHeader
-        currentScreenTitle="Record Delivery"
-        onOpenDrawer={() => {
-          if (navigation.canGoBack()) navigation.goBack();
-          else navigation.navigate('Orders');
-        }}
-        navigation={navigation}
-      />
-
-      <ScrollView style={styles.scrollForm} contentContainerStyle={{ paddingBottom: 40 }}>
-        <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>Delivery Voucher</Text>
-          <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-            Log dispatched water storage tanks and generate official server receipt.
-          </Text>
+      ) : (
+        <ScrollView style={styles.scrollForm} contentContainerStyle={{ paddingBottom: 40 }}>
+          <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
+            <Text style={[styles.title, { color: colors.textPrimary }]}>Delivery Voucher</Text>
+            <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+              Log dispatched water storage tanks and generate official server receipt.
+            </Text>
 
           {errors.form && (
             <View style={styles.errorBox}>
@@ -232,12 +238,13 @@ export const DeliveryFormScreen = ({ route, navigation }: any) => {
             </View>
           </View>
 
-          {/* 2. Product Units / Quantity (Strict Tank Sizes) */}
+          {/* 2. Product Units / Quantity (Strict Tank Sizes with Line Items) */}
           <TankSelector
-            tank500={tank500}
-            tank1000={tank1000}
-            tank2000={tank2000}
-            onChange={handleTankChange}
+            items={tankLineItems}
+            onChangeItems={(newItems) => {
+              setTankLineItems(newItems);
+              if (errors.tanks) setErrors((prev) => ({ ...prev, tanks: '' }));
+            }}
           />
           {errors.tanks ? <Text style={[styles.errorText, { marginBottom: 12 }]}>{errors.tanks}</Text> : null}
 
@@ -279,18 +286,28 @@ export const DeliveryFormScreen = ({ route, navigation }: any) => {
 
           {/* 5. Dispatch / Delivery Note */}
           <View style={styles.field}>
-            <Text style={[styles.label, { color: colors.textMuted }]}>
-              DISPATCH REFERENCE / INVOICE NOTE <Text style={styles.optText}>(Optional)</Text>
-            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <Text style={[styles.label, { color: colors.textMuted, marginBottom: 0 }]}>
+                DISPATCH REFERENCE / INVOICE NOTE <Text style={styles.optText}>(Optional)</Text>
+              </Text>
+              <Text style={{ fontSize: 10, color: colors.textMuted, fontVariant: ['tabular-nums'] }}>
+                {note.length}/500
+              </Text>
+            </View>
             <TextInput
               style={[
                 styles.input,
+                styles.textArea,
                 { backgroundColor: colors.bgSecondary, borderColor: colors.borderSubtle, color: colors.textPrimary },
               ]}
-              placeholder="Vehicle no., Challan reference, batch details..."
+              placeholder="Vehicle no., Challan reference, batch details, handling notes..."
               placeholderTextColor={colors.textMuted}
               value={note}
-              onChangeText={setNote}
+              onChangeText={(val) => setNote(val.slice(0, 500))}
+              multiline={true}
+              numberOfLines={3}
+              maxLength={500}
+              textAlignVertical="top"
             />
           </View>
 
@@ -299,7 +316,7 @@ export const DeliveryFormScreen = ({ route, navigation }: any) => {
             <Text style={[styles.summaryTitle, { color: colors.textPrimary }]}>Live Order Summary</Text>
             <View style={styles.summaryRow}>
               <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Target Vendor</Text>
-              <Text style={[styles.summaryVal, { color: colors.textPrimary }]}>
+              <Text style={[styles.summaryVal, { color: colors.textPrimary, flex: 1, textAlign: 'right' }]}>
                 {selectedSeller.name}
               </Text>
             </View>
@@ -309,12 +326,14 @@ export const DeliveryFormScreen = ({ route, navigation }: any) => {
                 {totalUnits} Units
               </Text>
             </View>
-            <View style={styles.summaryRow}>
-              <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Capacity Mix</Text>
-              <Text style={[styles.summaryVal, { color: colors.textPrimary }]}>
-                500L: {tank500} • 1000L: {tank1000} • 2000L: {tank2000}
-              </Text>
-            </View>
+            {itemizedSummary ? (
+              <View style={[styles.summaryRow, { alignItems: 'flex-start' }]}>
+                <Text style={[styles.summaryLabel, { color: colors.textMuted, marginRight: 8 }]}>Variants Breakdown</Text>
+                <Text style={[styles.summaryVal, { color: colors.textPrimary, flex: 1, textAlign: 'right', flexWrap: 'wrap' }]}>
+                  {itemizedSummary}
+                </Text>
+              </View>
+            ) : null}
             <View style={[styles.summaryRow, styles.summaryTotalRow]}>
               <Text style={[styles.summaryTotalLabel, { color: colors.textPrimary }]}>Total Billed Amount</Text>
               <Text style={[styles.summaryTotalVal, { color: '#0284c7' }]}>
@@ -341,6 +360,7 @@ export const DeliveryFormScreen = ({ route, navigation }: any) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      )}
 
       {/* Official Server Receipt Modal (Direct Confirmation) */}
       <ReceiptModal
@@ -518,6 +538,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     fontSize: 14,
     fontWeight: '600',
+  },
+  textArea: {
+    height: 72,
+    textAlignVertical: 'top',
+    paddingTop: 10,
   },
   inputError: {
     borderColor: '#ef4444',

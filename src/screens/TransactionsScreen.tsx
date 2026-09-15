@@ -198,7 +198,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({ route, n
   };
 
   const fmtCurrency = (val: number) => {
-    return '₹' + Number(val || 0).toLocaleString('en-IN', {
+    return '₹' + Math.abs(Number(val || 0)).toLocaleString('en-IN', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
@@ -266,7 +266,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({ route, n
       </View>
 
       {/* Search Input */}
-      <View style={styles.searchBox}>
+      <View style={[styles.searchBox, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
         <Ionicons name="search" size={16} color={colors.textMuted} style={{ marginRight: 8 }} />
         <TextInput
           style={[styles.searchInput, { color: colors.textPrimary }]}
@@ -290,14 +290,14 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({ route, n
             style={[
               styles.filterTab,
               { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle },
-              filterType === t ? styles.filterTabActive : null,
+              filterType === t ? { backgroundColor: colors.accent, borderColor: colors.accent } : null,
             ]}
             onPress={() => handleFilterChange(t)}
           >
             <Text
               style={[
                 styles.filterTabText,
-                { color: filterType === t ? '#fff' : colors.textMuted },
+                { color: filterType === t ? '#ffffff' : colors.textSecondary },
               ]}
             >
               {t === 'ALL' ? 'All Operations' : t === 'DELIVERY' ? 'Deliveries (Tanks)' : 'Payments Received'}
@@ -341,13 +341,11 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({ route, n
             const vendorName =
               (item.seller && item.seller.name) ||
               (item.sellerId && typeof item.sellerId === 'object' ? (item.sellerId as any).name : 'Vendor');
-            const paidAmount = item.paidAmount !== undefined
-              ? item.paidAmount
-              : (item.linkedPayments ? item.linkedPayments.reduce((s: number, p: any) => s + p.amount, 0) : 0);
-            const remainingDue = item.remainingDue !== undefined
-              ? item.remainingDue
-              : Math.max(0, item.amount - paidAmount);
-            const paidPercent = item.amount > 0 ? Math.min(100, Math.round((paidAmount / item.amount) * 100)) : 0;
+            const advanceCredit = item.advanceCredit || 0;
+            const paidAmount = item.paidAmount || 0;
+            const remainingDue = item.remainingDue !== undefined ? item.remainingDue : 0;
+            const totalCovered = Math.min(item.amount, paidAmount + advanceCredit);
+            const paidPercent = item.amount > 0 ? Math.min(100, Math.round((totalCovered / item.amount) * 100)) : 0;
 
             return (
               <TouchableOpacity
@@ -378,9 +376,11 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({ route, n
                       remainingDue <= 0 ? (
                         <View style={[styles.orderStatusBadge, { backgroundColor: 'rgba(16, 185, 129, 0.15)', borderColor: 'rgba(16, 185, 129, 0.3)' }]}>
                           <Ionicons name="checkmark-circle" size={11} color="#10b981" style={{ marginRight: 3 }} />
-                          <Text style={[styles.orderStatusText, { color: '#10b981' }]}>Fully Paid</Text>
+                          <Text style={[styles.orderStatusText, { color: '#10b981' }]}>
+                            {paidAmount >= item.amount ? 'Fully Paid' : 'Settled (Advance)'}
+                          </Text>
                         </View>
-                      ) : paidAmount > 0 ? (
+                      ) : (paidAmount > 0 || advanceCredit > 0) ? (
                         <View style={[styles.orderStatusBadge, { backgroundColor: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.3)' }]}>
                           <Ionicons name="time-outline" size={11} color="#f59e0b" style={{ marginRight: 3 }} />
                           <Text style={[styles.orderStatusText, { color: '#f59e0b' }]}>Partial ({paidPercent}%)</Text>
@@ -399,7 +399,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({ route, n
                       { color: isDelivery ? colors.textPrimary : '#10b981' },
                     ]}
                   >
-                    {isDelivery ? fmtCurrency(item.amount) : `-${fmtCurrency(item.amount)}`}
+                    {fmtCurrency(item.amount)}
                   </Text>
                 </View>
 
@@ -413,15 +413,9 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({ route, n
                   </Text>
                 </View>
 
-                {/* Specifics */}
+                {/* Delivery Item / Tanks Summary */}
                 {isDelivery ? (
-                  <View style={{ gap: 4 }}>
-                    <View style={styles.tankChips}>
-                      <Text style={[styles.tankChip, { color: '#3b82f6' }]}>500L: {item.tank500 || 0}</Text>
-                      <Text style={[styles.tankChip, { color: '#10b981' }]}>1000L: {item.tank1000 || 0}</Text>
-                      <Text style={[styles.tankChip, { color: '#8b5cf6' }]}>2000L: {item.tank2000 || 0}</Text>
-                    </View>
-
+                  <View>
                     {/* Minimalist Settlement Financial Row with 3px Progress Bar */}
                     <View style={styles.minimalFinanceBox}>
                       <View style={styles.minimalFinanceRow}>
@@ -429,7 +423,10 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({ route, n
                           Bill: <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>{fmtCurrency(item.amount)}</Text>
                         </Text>
                         <Text style={[styles.minimalFinanceText, { color: colors.textMuted }]}>
-                          Paid: <Text style={{ color: '#10b981', fontWeight: '700' }}>{fmtCurrency(paidAmount)}</Text>
+                          {paidAmount > 0 ? 'Paid: ' : advanceCredit > 0 ? 'Advance: ' : 'Paid: '}
+                          <Text style={{ color: '#10b981', fontWeight: '700' }}>
+                            {fmtCurrency(paidAmount > 0 ? paidAmount : totalCovered)}
+                          </Text>
                         </Text>
                         <Text style={[styles.minimalFinanceText, { color: colors.textMuted }]}>
                           Due: <Text style={{ color: remainingDue > 0 ? '#ef4444' : '#10b981', fontWeight: '700' }}>{fmtCurrency(remainingDue)}</Text>
@@ -447,6 +444,71 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({ route, n
                         />
                       </View>
                     </View>
+                  </View>
+                ) : null}
+
+                {/* Specifics */}
+                {isDelivery ? (
+                  <View style={{ gap: 4 }}>
+                    {/* Tank Line Items / Breakdown */}
+                    {item.tankItems && item.tankItems.length > 0 ? (
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: 3 }}>
+                        {item.tankItems.filter((t) => Number(t.quantity) > 0).map((t, idx) => {
+                          const foamStr = t.size === 1000 && t.foam && t.foam !== 'none' ? `, ${t.foam}` : '';
+                          const is500 = t.size === 500;
+                          return (
+                            <View
+                              key={idx}
+                              style={{
+                                paddingHorizontal: 8,
+                                paddingVertical: 3,
+                                borderRadius: 6,
+                                backgroundColor: is500 ? 'rgba(59, 130, 246, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                                borderWidth: 1,
+                                borderColor: is500 ? 'rgba(59, 130, 246, 0.25)' : 'rgba(16, 185, 129, 0.25)',
+                              }}
+                            >
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: is500 ? '#60a5fa' : '#34d399' }}>
+                                {t.quantity}× {t.size}L ({t.layers || 3}L{foamStr})
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    ) : (
+                      <View style={styles.tankChips}>
+                        <Text style={[styles.tankChip, { color: '#3b82f6' }]}>500L: {item.tank500 || 0}</Text>
+                        <Text style={[styles.tankChip, { color: '#10b981' }]}>1000L: {item.tank1000 || 0}</Text>
+                      </View>
+                    )}
+
+                    {/* Back Due Continuity */}
+                    {item.previousDues !== undefined ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 3, marginTop: 4 }}>
+                        <Text style={{ fontSize: 11, color: colors.textMuted }}>Balance:</Text>
+                        <Text style={{ fontSize: 11, color: item.previousDues < 0 ? '#10b981' : colors.textMuted, fontWeight: item.previousDues < 0 ? '700' : '500' }}>
+                          {item.previousDues < 0 ? `+ ${fmtCurrency(item.previousDues)}` : fmtCurrency(item.previousDues)}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: colors.textMuted }}>→</Text>
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            fontWeight: '800',
+                            color: (item.currentDues ?? (item.previousDues + item.amount)) === 0
+                              ? '#10b981'
+                              : (item.currentDues ?? (item.previousDues + item.amount)) < 0
+                              ? '#10b981'
+                              : '#f59e0b',
+                          }}
+                        >
+                          {(item.currentDues ?? (item.previousDues + item.amount)) === 0
+                            ? '₹0.00 (Settled)'
+                            : (item.currentDues ?? (item.previousDues + item.amount)) < 0
+                            ? `+ ${fmtCurrency(item.currentDues ?? (item.previousDues + item.amount))} (Advance)`
+                            : `${fmtCurrency(item.currentDues ?? (item.previousDues + item.amount))} (Due)`}
+                        </Text>
+                      </View>
+                    ) : null}
 
                     {/* Minimalist Associated Payments Section */}
                     {item.linkedPayments && item.linkedPayments.length > 0 ? (
@@ -480,7 +542,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({ route, n
                                     {p.paymentMode || 'Direct'} • {new Date(p.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                                   </Text>
                                   <Text style={styles.minimalPaymentAmount}>
-                                    -{fmtCurrency(p.amount)}
+                                    {fmtCurrency(p.amount)}
                                   </Text>
                                 </View>
                               </View>
@@ -510,6 +572,32 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({ route, n
                         General Account Settlement (Unlinked Credit)
                       </Text>
                     )}
+                    {item.previousDues !== undefined ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 3, marginTop: 4 }}>
+                        <Text style={{ fontSize: 11, color: colors.textMuted }}>Balance:</Text>
+                        <Text style={{ fontSize: 11, color: item.previousDues < 0 ? '#10b981' : colors.textMuted, fontWeight: item.previousDues < 0 ? '700' : '500' }}>
+                          {item.previousDues < 0 ? `+ ${fmtCurrency(item.previousDues)}` : fmtCurrency(item.previousDues)}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: colors.textMuted }}>→</Text>
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            fontWeight: '800',
+                            color: (item.currentDues ?? (item.previousDues - item.amount)) === 0
+                              ? '#10b981'
+                              : (item.currentDues ?? (item.previousDues - item.amount)) < 0
+                              ? '#10b981'
+                              : '#f59e0b',
+                          }}
+                        >
+                          {(item.currentDues ?? (item.previousDues - item.amount)) === 0
+                            ? '₹0.00 (Settled)'
+                            : (item.currentDues ?? (item.previousDues - item.amount)) < 0
+                            ? `+ ${fmtCurrency(item.currentDues ?? (item.previousDues - item.amount))} (Advance)`
+                            : `${fmtCurrency(item.currentDues ?? (item.previousDues - item.amount))} (Due)`}
+                        </Text>
+                      </View>
+                    ) : null}
                   </View>
                 )}
 
@@ -519,7 +607,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({ route, n
                   </Text>
                 ) : null}
 
-                <View style={styles.cardFooter}>
+                <View style={[styles.cardFooter, { borderTopColor: colors.borderSubtle }]}>
                   <Text style={[styles.viewReceiptLink, { color: colors.accentHover }]}>
                     Inspect Receipt Voucher →
                   </Text>
@@ -545,6 +633,8 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({ route, n
         sellers={allSellers}
         initialType={createTxType}
         onSuccess={async (_tx) => {
+          const msg = (_tx as any)?.serverMessage || 'Transaction created successfully.';
+          setToastMsg(msg);
           await invalidateTransactions();
           loadData(1, true);
         }}
@@ -683,6 +773,7 @@ const styles = StyleSheet.create({
   amountText: {
     fontSize: 15,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   cardMid: {
     flexDirection: 'row',
@@ -721,7 +812,6 @@ const styles = StyleSheet.create({
   },
   cardFooter: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.05)',
     paddingTop: 8,
     alignItems: 'flex-end',
   },

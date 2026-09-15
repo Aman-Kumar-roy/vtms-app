@@ -11,11 +11,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { VasudhaLogo } from '../components/VasudhaLogo';
 import { Colors } from '../constants/theme';
 
 export const LoginScreen = () => {
   const { login, isLoading } = useAuth();
+  const { colors, theme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -44,28 +46,28 @@ export const LoginScreen = () => {
     try {
       await login(email.trim(), password);
     } catch (err: any) {
-      setGeneralError(err.message || 'Invalid email or password. Please check your credentials and try again.');
+      setGeneralError(err.message);
     }
   };
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.bgPrimary }]}
     >
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
         <VasudhaLogo size={70} showText={true} subtext="Vendor & Transaction Operations Hub" />
 
         {generalError ? <Text style={styles.generalError}>{generalError}</Text> : null}
 
         <View style={styles.field}>
-          <Text style={styles.label}>ADMIN EMAIL ADDRESS</Text>
-          <View style={[styles.inputIconGroup, emailError ? styles.inputError : null]}>
-            <Ionicons name="mail-outline" size={18} color="#38bdf8" style={styles.fieldIcon} />
+          <Text style={[styles.label, { color: colors.textSecondary }]}>ADMIN EMAIL ADDRESS</Text>
+          <View style={[styles.inputIconGroup, { backgroundColor: theme === 'dark' ? '#070b14' : colors.bgPrimary, borderColor: colors.borderSubtle }, emailError ? styles.inputError : null]}>
+            <Ionicons name="mail-outline" size={18} color={colors.accent} style={styles.fieldIcon} />
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: colors.textPrimary }]}
               placeholder="name@vasudhapolymer.com"
-              placeholderTextColor="#64748b"
+              placeholderTextColor={colors.textMuted}
               value={email}
               onChangeText={(val) => {
                 setEmail(val);
@@ -79,13 +81,13 @@ export const LoginScreen = () => {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>PASSWORD</Text>
-          <View style={[styles.inputIconGroup, passwordError ? styles.inputError : null]}>
-            <Ionicons name="lock-closed-outline" size={18} color="#38bdf8" style={styles.fieldIcon} />
+          <Text style={[styles.label, { color: colors.textSecondary }]}>PASSWORD</Text>
+          <View style={[styles.inputIconGroup, { backgroundColor: theme === 'dark' ? '#070b14' : colors.bgPrimary, borderColor: colors.borderSubtle }, passwordError ? styles.inputError : null]}>
+            <Ionicons name="lock-closed-outline" size={18} color={colors.accent} style={styles.fieldIcon} />
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: colors.textPrimary }]}
               placeholder="••••••••••••"
-              placeholderTextColor="#64748b"
+              placeholderTextColor={colors.textMuted}
               secureTextEntry={!showPassword}
               value={password}
               onChangeText={(val) => {
@@ -101,22 +103,29 @@ export const LoginScreen = () => {
               <Ionicons
                 name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                 size={18}
-                color="#64748b"
+                color={colors.textMuted}
               />
             </TouchableOpacity>
           </View>
           {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
         </View>
 
-        <TouchableOpacity style={styles.btn} onPress={handleLogin} disabled={isLoading} activeOpacity={0.8}>
-          {isLoading ? (
-            <ActivityIndicator color={Colors.white} />
-          ) : (
-            <View style={styles.btnContent}>
-              <Text style={styles.btnText}>Sign In to Admin Hub</Text>
-              <Ionicons name="arrow-forward" size={16} color={Colors.white} style={{ marginLeft: 6 }} />
-            </View>
-          )}
+        <TouchableOpacity
+          style={[styles.btn, { backgroundColor: colors.accent }]}
+          onPress={handleLogin}
+          disabled={isLoading}
+          activeOpacity={0.8}
+        >
+          <View style={styles.btnContent}>
+            {isLoading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <>
+                <Text style={styles.btnText}>Sign In to VTMS Hub</Text>
+                <Ionicons name="arrow-forward" size={16} color="#ffffff" style={{ marginLeft: 6 }} />
+              </>
+            )}
+          </View>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>

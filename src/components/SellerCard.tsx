@@ -10,7 +10,7 @@ interface SellerCardProps {
 }
 
 export const SellerCard: React.FC<SellerCardProps> = ({ seller, onPress }) => {
-  const { colors } = useTheme();
+  const { colors, theme } = useTheme();
 
   const dues = Number(seller.totalDues || 0);
   const deliveries = Number(seller.totalDeliveries || 0);
@@ -19,7 +19,7 @@ export const SellerCard: React.FC<SellerCardProps> = ({ seller, onPress }) => {
 
   const fmtCurrency = (val: number) =>
     '₹' +
-    Number(val || 0).toLocaleString('en-IN', {
+    Math.abs(Number(val || 0)).toLocaleString('en-IN', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
@@ -124,7 +124,7 @@ export const SellerCard: React.FC<SellerCardProps> = ({ seller, onPress }) => {
           style={[
             styles.chevronBox,
             {
-              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)',
             },
           ]}
         >
@@ -137,7 +137,7 @@ export const SellerCard: React.FC<SellerCardProps> = ({ seller, onPress }) => {
         style={[
           styles.financeStrip,
           {
-            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backgroundColor: theme === 'dark' ? 'rgba(15, 23, 42, 0.65)' : colors.bgPrimary,
             borderColor: colors.borderSubtle,
           },
         ]}
@@ -145,7 +145,7 @@ export const SellerCard: React.FC<SellerCardProps> = ({ seller, onPress }) => {
         {/* Due / Balance Pill */}
         <View style={styles.financeCol}>
           <Text style={[styles.financeLabel, { color: colors.textMuted }]}>
-            {hasDues ? 'NET DUES' : 'STATUS'}
+            {dues < 0 ? 'ADVANCE' : hasDues ? 'NET DUES' : 'STATUS'}
           </Text>
           <Text
             style={[
@@ -153,7 +153,7 @@ export const SellerCard: React.FC<SellerCardProps> = ({ seller, onPress }) => {
               { color: hasDues ? '#ef4444' : '#10b981' },
             ]}
           >
-            {hasDues ? fmtCurrency(dues) : 'Settled ✓'}
+            {dues < 0 ? `+${fmtCurrency(dues)}` : hasDues ? fmtCurrency(dues) : 'Settled ✓'}
           </Text>
         </View>
 
@@ -283,10 +283,12 @@ const styles = StyleSheet.create({
   dueValue: {
     fontSize: 13,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   financeValue: {
     fontSize: 13,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   stripDivider: {
     width: 1,

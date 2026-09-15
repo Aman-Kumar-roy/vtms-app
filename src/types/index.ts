@@ -1,7 +1,7 @@
 /**
  * VTMS Mobile App Types
  * Strictly enforces project constraints:
- * - Tank sizes allowed: 500, 1000, 2000 ONLY (tank500, tank1000, tank2000)
+ * - Tank sizes allowed: 500, 1000 ONLY (tank500, tank1000)
  * - Server computed dynamic totals (totalDeliveries, totalPaid, totalDues)
  */
 
@@ -26,9 +26,10 @@ export interface Seller {
   totalDeliveries?: number;
   totalPaid?: number;
   totalDues?: number;
+  advanceCredit?: number;
+  isOverpaid?: boolean;
   tank500?: number;
   tank1000?: number;
-  tank2000?: number;
   transactionCount?: number;
   createdAt: string;
   updatedAt: string;
@@ -52,14 +53,29 @@ export interface Transaction {
   amount: number;
   date: string;
   note?: string | null;
-  // Strictly tank sizes: 500, 1000, 2000
+  // Strictly tank sizes: 500, 1000
   tank500: number;
   tank1000: number;
-  tank2000: number;
+  tank500_layers?: number | null;
+  tank1000_layers?: number | null;
+  tank1000_foam?: string | null;
+  tankItems?: Array<{
+    size: 500 | 1000;
+    quantity: number;
+    layers: number;
+    foam?: 'none' | 'single' | 'double';
+  }>;
   paymentMode?: string | null;
   createdAt: string;
   paidAmount?: number;
   remainingDue?: number;
+  advanceCredit?: number;
+  previousDues?: number;
+  currentDues?: number;
+  isPreviousAdvance?: boolean;
+  isCurrentAdvance?: boolean;
+  previousDuesFormatted?: string;
+  currentDuesFormatted?: string;
   linkedPayments?: Array<{
     id?: string;
     _id?: string;
@@ -94,6 +110,7 @@ export interface Transaction {
 export interface ServerReceipt {
   receiptNo: string;
   issueDate: string;
+  orderDate?: string;
   status: string;
   company: {
     name: string;
@@ -121,7 +138,17 @@ export interface ServerReceipt {
     paymentMode?: string | null;
     tank500: number;
     tank1000: number;
-    tank2000: number;
+    tank500_layers?: number | null;
+    tank1000_layers?: number | null;
+    tank1000_foam?: string | null;
+    tankItems?: Array<{
+      size: 500 | 1000;
+      quantity: number;
+      layers: number;
+      foam?: 'none' | 'single' | 'double';
+    }>;
+    previousDues?: number;
+    currentDues?: number;
     totalTanks: number;
     createdAt?: string;
   };
@@ -129,8 +156,15 @@ export interface ServerReceipt {
     description: string;
     capacity: string;
     quantity: number;
+    layers?: number | null;
+    foam?: string | null;
     unitName: string;
   }>;
+  settlement?: {
+    previousDues: number;
+    transactionAmount: number;
+    closingBalance: number;
+  };
   totalUnits: number;
 }
 
@@ -150,7 +184,6 @@ export interface SummaryReportData {
   tankDistribution: {
     tank500: number;
     tank1000: number;
-    tank2000: number;
   };
   topVendors: Array<{
     sellerId?: string;
@@ -163,7 +196,6 @@ export interface SummaryReportData {
 export interface TankSummaryData {
   tank500: number;
   tank1000: number;
-  tank2000: number;
   totalTanks: number;
 }
 
@@ -172,7 +204,6 @@ export interface SellerTankSummaryRow {
   sellerName: string;
   total500: number;
   total1000: number;
-  total2000: number;
   totalOrders: number;
 }
 
@@ -195,6 +226,5 @@ export interface ApiResponse<T> {
     totalDues: number;
     tank500: number;
     tank1000: number;
-    tank2000: number;
   };
 }

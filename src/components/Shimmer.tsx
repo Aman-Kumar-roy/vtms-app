@@ -41,11 +41,15 @@ export const ShimmerBlock: React.FC<ShimmerBlockProps> = ({
     outputRange: [0.25, 0.7],
   });
 
+  const { theme } = useTheme();
+  const blockBg = theme === 'dark' ? '#1e293b' : '#e2e8f0';
+
   return (
     <Animated.View
       style={[
         styles.block,
         {
+          backgroundColor: blockBg,
           width: width as any,
           height,
           borderRadius,

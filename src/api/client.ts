@@ -4,7 +4,7 @@ import Constants from 'expo-constants';
 
 declare const process: any;
 
-const CURRENT_LAN_IP = '10.179.225.217';
+const CURRENT_LAN_IP = '192.168.1.60';
 
 const getNativeHostIp = (): string | null => {
   try {
@@ -99,10 +99,14 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Global response interceptor for 401 Unauthorized & network errors
+// Global response interceptor for 401 Unauthorized, network errors, and server message extraction
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
+    const serverMessage = error?.response?.data?.message || error?.response?.data?.error;
+    if (serverMessage && typeof serverMessage === 'string') {
+      error.message = serverMessage;
+    }
     const isLoginEndpoint = error?.config?.url?.includes('/auth/login');
     if (!isLoginEndpoint) {
       console.log(`[API Response Error] ${error?.config?.baseURL}${error?.config?.url}:`, error?.message || error);

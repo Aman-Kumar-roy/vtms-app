@@ -133,7 +133,7 @@ export const PaymentFormScreen = ({ route, navigation }: any) => {
       setCreatedTransaction(tx);
       setShowReceiptModal(true);
     } catch (e: any) {
-      setErrors({ form: e.message || 'Failed to record payment' });
+      setErrors({ form: e.message });
     } finally {
       setLoading(false);
     }
@@ -153,7 +153,7 @@ export const PaymentFormScreen = ({ route, navigation }: any) => {
   };
 
   const fmtCurrency = (val: number) => {
-    return '₹' + Number(val || 0).toLocaleString('en-IN', {
+    return '₹' + Math.abs(Number(val || 0)).toLocaleString('en-IN', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
@@ -163,31 +163,23 @@ export const PaymentFormScreen = ({ route, navigation }: any) => {
   const payVal = Number(amount) || 0;
   const remainingDues = Math.max(0, currentDues - payVal);
 
-  if (fetchingSeller) {
-    return (
-      <AnimatedScreenWrapper style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
-        <NavbarHeader
-          currentScreenTitle="Record Payment"
-          onOpenDrawer={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Transactions')}
-          navigation={navigation}
-        />
+  return (
+    <AnimatedScreenWrapper direction="none" showTopLoader={false} style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
+      <NavbarHeader
+        currentScreenTitle="Record Payment"
+        onOpenDrawer={() => {
+          if (navigation.canGoBack()) navigation.goBack();
+          else navigation.navigate(selectedSeller ? 'SellerDetail' : 'Transactions');
+        }}
+        navigation={navigation}
+      />
+
+      {fetchingSeller ? (
         <View style={styles.centerBox}>
           <ActivityIndicator size="large" color={colors.accentHover} />
           <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading vendor details...</Text>
         </View>
-      </AnimatedScreenWrapper>
-    );
-  }
-
-  // Transactions must be created inside seller context
-  if (!selectedSeller) {
-    return (
-      <AnimatedScreenWrapper style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
-        <NavbarHeader
-          currentScreenTitle="Record Payment"
-          onOpenDrawer={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Sellers')}
-          navigation={navigation}
-        />
+      ) : !selectedSeller ? (
         <View style={[styles.card, styles.emptyCard, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
           <View style={styles.emptyIconCircle}>
             <Ionicons name="cash-outline" size={36} color="#10b981" />
@@ -205,27 +197,13 @@ export const PaymentFormScreen = ({ route, navigation }: any) => {
             <Text style={styles.primaryActionBtnText}>Select Vendor from Directory →</Text>
           </TouchableOpacity>
         </View>
-      </AnimatedScreenWrapper>
-    );
-  }
-
-  return (
-    <AnimatedScreenWrapper style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
-      <NavbarHeader
-        currentScreenTitle="Record Payment"
-        onOpenDrawer={() => {
-          if (navigation.canGoBack()) navigation.goBack();
-          else navigation.navigate('Transactions');
-        }}
-        navigation={navigation}
-      />
-
-      <ScrollView style={styles.scrollForm} contentContainerStyle={{ paddingBottom: 40 }}>
-        <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>Payment Voucher</Text>
-          <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-            Record received financial settlements from vendor accounts.
-          </Text>
+      ) : (
+        <ScrollView style={styles.scrollForm} contentContainerStyle={{ paddingBottom: 40 }}>
+          <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
+            <Text style={[styles.title, { color: colors.textPrimary }]}>Payment Voucher</Text>
+            <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+              Record received financial settlements from vendor accounts.
+            </Text>
 
           {errors.form && (
             <View style={styles.errorBox}>
@@ -453,18 +431,28 @@ export const PaymentFormScreen = ({ route, navigation }: any) => {
 
           {/* 5. Note */}
           <View style={styles.field}>
-            <Text style={[styles.label, { color: colors.textMuted }]}>
-              TRANSACTION REFERENCE / NOTE <Text style={styles.optText}>(Optional)</Text>
-            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <Text style={[styles.label, { color: colors.textMuted, marginBottom: 0 }]}>
+                TRANSACTION REFERENCE / NOTE <Text style={styles.optText}>(Optional)</Text>
+              </Text>
+              <Text style={{ fontSize: 10, color: colors.textMuted, fontVariant: ['tabular-nums'] }}>
+                {note.length}/500
+              </Text>
+            </View>
             <TextInput
               style={[
                 styles.input,
+                styles.textArea,
                 { backgroundColor: colors.bgSecondary, borderColor: colors.borderSubtle, color: colors.textPrimary },
               ]}
-              placeholder="Bank ref, UTR no., cheque number, receipt remarks..."
+              placeholder="Bank ref, UTR no., cheque number, receipt remarks, payment settlement details..."
               placeholderTextColor={colors.textMuted}
               value={note}
-              onChangeText={setNote}
+              onChangeText={(val) => setNote(val.slice(0, 500))}
+              multiline={true}
+              numberOfLines={3}
+              maxLength={500}
+              textAlignVertical="top"
             />
           </View>
 
@@ -517,6 +505,7 @@ export const PaymentFormScreen = ({ route, navigation }: any) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      )}
 
       {/* Official Server Receipt Modal (Direct Confirmation) */}
       <ReceiptModal
@@ -705,6 +694,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     marginTop: 2,
+    fontVariant: ['tabular-nums'],
   },
   input: {
     height: 48,
@@ -713,6 +703,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     fontSize: 14,
     fontWeight: '600',
+  },
+  textArea: {
+    height: 72,
+    textAlignVertical: 'top',
+    paddingTop: 10,
   },
   inputError: {
     borderColor: '#ef4444',
@@ -783,6 +778,7 @@ const styles = StyleSheet.create({
   summaryVal: {
     fontSize: 12,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   summaryTotalRow: {
     borderTopWidth: 1,
@@ -798,6 +794,7 @@ const styles = StyleSheet.create({
   summaryTotalVal: {
     fontSize: 16,
     fontWeight: '900',
+    fontVariant: ['tabular-nums'],
   },
   submitBtn: {
     height: 48,

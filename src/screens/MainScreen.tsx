@@ -63,21 +63,21 @@ export const MainScreen: React.FC<MainScreenProps> = ({ route, navigation }) => 
       setNavDirection(direction);
       setIsNavigating(true);
 
-      // Slide offset: 38px in the direction of navigation
-      const startX = isMovingRight ? 38 : -38;
+      // Subtle micro-slide with minimum opacity 0.88 to completely eliminate screen flashing/flicker
+      const startX = isMovingRight ? 18 : -18;
       slideAnim.setValue(startX);
-      opacityAnim.setValue(0.25);
+      opacityAnim.setValue(0.88);
 
       Animated.parallel([
         Animated.timing(slideAnim, {
           toValue: 0,
-          duration: 220,
+          duration: 150,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(opacityAnim, {
           toValue: 1,
-          duration: 200,
+          duration: 140,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),

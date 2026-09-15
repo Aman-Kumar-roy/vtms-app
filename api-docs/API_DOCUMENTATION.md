@@ -10,7 +10,7 @@ Complete REST API specification, data models, payloads, server receipt formats, 
 | :--- | :--- | :--- |
 | **Local Development (Web / Desktop)** | `http://localhost:5000/api/v1` | Primary local development backend |
 | **Local Wi-Fi (Physical Mobile / Emulator)** | `http://<METRO_HOST_IP>:5000/api/v1` | Auto-resolved dynamically in `app/src/api/client.ts` via Metro host IP |
-| **Production Server** | `https://api.vasudhapolymer.com/api/v1` | Production deployment URL |
+| **Production Server** | `https://api.example.com/api/v1` | Production deployment URL |
 
 ---
 
@@ -36,11 +36,18 @@ Accept: application/json
 
 > [!IMPORTANT]
 > **Strict Tank Capacities**:
-> We sell polymer water storage tank units to vendors/sellers. Only **`500L` (`tank500`)**, **`1000L` (`tank1000`)**, and **`2000L` (`tank2000`)** are allowed in the system. Never add or send other tank sizes (`300L`, `750L`, `1500L`, etc.).
+> We sell polymer water storage tank units to vendors/sellers. Only **`500L` (`tank500`)** and **`1000L` (`tank1000`)** are allowed in the system. `2000L` is strictly prohibited and rejected with `400 Bad Request`. Never add or send other tank sizes (`300L`, `750L`, `1500L`, `2000L`, etc.).
 
 > [!IMPORTANT]
-> **Dynamic Ledger Totals**:
-> `totalDeliveries`, `totalPaid`, and `totalDues` are calculated dynamically on the server from the `Transaction` collection. Clients must NEVER calculate, store, or hardcode balance amounts.
+> **Flexible Tank Line Items (`tankItems`)**:
+> Deliveries support flexible line items via `tankItems: [{ size: 500 | 1000, quantity: number, layers: 3-6, foam?: 'none' | 'single' | 'double' }]`.
+> - **Tank Layers**: 3 to 6 layers mandatory per tank item.
+> - **Foam Type (1000L Tanks Only)**: `none`, `single`, `double` (default `'none'`). Prohibited on 500L tanks.
+
+> [!IMPORTANT]
+> **Back Due Tracking & Dynamic Totals**:
+> - Every transaction tracks `previousDues` (outstanding vendor balance prior to transaction) and `currentDues` (closing balance immediately following transaction).
+> - `totalDeliveries`, `totalPaid`, and `totalDues` are calculated dynamically on the server via MongoDB aggregation `$group` pipelines. Clients must NEVER calculate, store, or hardcode balance amounts.
 
 > [!IMPORTANT]
 > **Vendor Toggle Logic (`requireAdditional`)**:
@@ -48,8 +55,9 @@ Accept: application/json
 > - **When `false`**: Only Vendor Name is mandatory. Email, GSTIN, Phone, and Address are optional.
 
 > [!IMPORTANT]
-> **Server-Generated Official Receipts**:
-> Both `POST /api/v1/transactions` and `GET /api/v1/transactions/:id/receipt` return the server's official receipt voucher object (`RCP-XXXXXXXX`) containing company credentials from `.env`, vendor details, itemized tank breakdown, and digital verification seal.
+> **Database Performance & Safe Pagination**:
+> - All collection queries apply database-level `.skip()` and `.limit()` with a maximum limit cap of `100`.
+> - Regex searches are automatically escaped (`escapeRegex`) and truncated to 100 characters to prevent ReDoS.
 
 ---
 
@@ -211,7 +219,6 @@ Accept: application/json
         "totalDues": 30000.00,
         "tank500": 45,
         "tank1000": 20,
-        "tank2000": 8,
         "createdAt": "2026-09-01T08:00:00.000Z"
       }
     ],
@@ -270,7 +277,7 @@ Accept: application/json
     "totalDues": 0,
     "tank500": 0,
     "tank1000": 0,
-    "tank2000": 0,
+    "totalTanks": 0,
     "createdAt": "2026-09-05T12:00:00.000Z"
   },
   "data": {
@@ -285,7 +292,7 @@ Accept: application/json
     "totalDues": 0,
     "tank500": 0,
     "tank1000": 0,
-    "tank2000": 0,
+    "totalTanks": 0,
     "createdAt": "2026-09-05T12:00:00.000Z"
   }
 }
@@ -298,7 +305,7 @@ Accept: application/json
 * **Route**: `/api/v1/sellers/:id`
 * **Query Parameters**:
   - `page` (number, default: `1`)
-  - `limit` (number, default: `10`)
+  - `limit` (number, default: `10`, max: `100`)
 
 **Response (200 OK)**:
 ```json
@@ -306,7 +313,7 @@ Accept: application/json
   "success": true,
   "data": {
     "seller": {
-      "_id": "66d82345e12a4b001a111111",
+      "id": "66d82345e12a4b001a111111",
       "name": "Apex Polymer Solutions",
       "email": "contact@apexpolymer.com",
       "phone": "+91 98765 43210",
@@ -317,26 +324,35 @@ Accept: application/json
       "totalDues": 30000.00,
       "tank500": 45,
       "tank1000": 20,
-      "tank2000": 8
-    },
-    "transactions": [
-      {
-        "_id": "66d82345e12a4b001a222222",
-        "sellerId": "66d82345e12a4b001a111111",
-        "type": "DELIVERY",
-        "amount": 25000.00,
-        "date": "2026-09-04T10:00:00.000Z",
-        "note": "Standard dispatch",
-        "tank500": 10,
-        "tank1000": 5,
-        "tank2000": 2
-      }
-    ],
-    "pagination": {
-      "total": 5,
-      "page": 1,
-      "limit": 10,
-      "pages": 1
+      "totalTanks": 65,
+      "transactions": [
+        {
+          "id": "66d82345e12a4b001a222222",
+          "_id": "66d82345e12a4b001a222222",
+          "sellerId": "66d82345e12a4b001a111111",
+          "type": "DELIVERY",
+          "amount": 25000.00,
+          "previousDues": 5000.00,
+          "currentDues": 30000.00,
+          "date": "2026-09-04T10:00:00.000Z",
+          "note": "Standard dispatch",
+          "tank500": 10,
+          "tank1000": 5,
+          "tankItems": [
+            { "size": 500, "quantity": 10, "layers": 3, "foam": "none" },
+            { "size": 1000, "quantity": 5, "layers": 4, "foam": "single" }
+          ]
+        }
+      ],
+      "pagination": {
+        "total": 5,
+        "page": 1,
+        "limit": 10,
+        "totalPages": 1,
+        "hasNextPage": false,
+        "hasPrevPage": false
+      },
+      "createdAt": "2026-09-01T12:00:00.000Z"
     }
   }
 }
@@ -409,7 +425,12 @@ Accept: application/json
         "note": "Dispatched polymer tanks",
         "tank500": 10,
         "tank1000": 5,
-        "tank2000": 2,
+        "tankItems": [
+          { "size": 500, "quantity": 10, "layers": 3, "foam": "none" },
+          { "size": 1000, "quantity": 5, "layers": 4, "foam": "single" }
+        ],
+        "previousDues": 0,
+        "currentDues": 38500.50,
         "createdAt": "2026-09-05T12:00:00.000Z"
       }
     ],
@@ -417,7 +438,9 @@ Accept: application/json
       "total": 35,
       "page": 1,
       "limit": 10,
-      "pages": 4
+      "totalPages": 4,
+      "hasNextPage": true,
+      "hasPrevPage": false
     }
   }
 }
@@ -430,7 +453,7 @@ Accept: application/json
 * **Route**: `/api/v1/transactions`
 * **Auth**: Bearer Token (Admin or Manager)
 
-**Delivery Request Body (Strict 500L, 1000L, 2000L tanks)**:
+**Delivery Request Body (Strict 500L, 1000L tanks with Flexible Line Items)**:
 ```json
 {
   "sellerId": "66d82345e12a4b001a111111",
@@ -438,9 +461,10 @@ Accept: application/json
   "amount": 38500.50,
   "date": "2026-09-05T12:00:00.000Z",
   "note": "Dispatched standard polymer water storage tanks batch #101",
-  "tank500": 10,
-  "tank1000": 5,
-  "tank2000": 2
+  "tankItems": [
+    { "size": 500, "quantity": 10, "layers": 3, "foam": "none" },
+    { "size": 1000, "quantity": 5, "layers": 4, "foam": "single" }
+  ]
 }
 ```
 
@@ -467,53 +491,42 @@ Accept: application/json
     "sellerId": "66d82345e12a4b001a111111",
     "type": "DELIVERY",
     "amount": 38500.50,
+    "previousDues": 0,
+    "currentDues": 38500.50,
     "date": "2026-09-05T12:00:00.000Z",
     "note": "Dispatched standard polymer water storage tanks batch #101",
     "tank500": 10,
     "tank1000": 5,
-    "tank2000": 2,
+    "tankItems": [
+      { "size": 500, "quantity": 10, "layers": 3, "foam": "none" },
+      { "size": 1000, "quantity": 5, "layers": 4, "foam": "single" }
+    ],
     "createdAt": "2026-09-05T12:00:00.000Z"
   },
   "receipt": {
-    "receiptNumber": "RCP-20260905-1049",
-    "transactionId": "66d82345e12a4b001a222222",
+    "receiptNo": "RCP-1A222222",
     "issueDate": "2026-09-05T12:00:00.000Z",
-    "type": "DELIVERY",
-    "amount": 38500.50,
-    "paymentMode": "CASH",
-    "note": "Dispatched standard polymer water storage tanks batch #101",
+    "status": "CONFIRMED & RECORDED",
     "company": {
       "name": "Vasudha Polymer",
-      "gstNumber": "07AAAAA0000A1Z5",
+      "gst": "07AAAAA0000A1Z5",
       "phone": "+91 98765 43210",
       "address": "Plot 42, Industrial Zone, New Delhi - 110020"
     },
     "seller": {
-      "_id": "66d82345e12a4b001a111111",
+      "id": "66d82345e12a4b001a111111",
       "name": "Apex Polymer Solutions",
       "email": "contact@apexpolymer.com",
       "phone": "+91 98765 43210",
       "gstNumber": "07AAAAA0000A1Z5"
     },
     "items": [
-      { "item": "Polymer Tank 500L", "quantity": 10 },
-      { "item": "Polymer Tank 1000L", "quantity": 5 },
-      { "item": "Polymer Tank 2000L", "quantity": 2 }
+      { "description": "Water Storage Tank (Polymer)", "capacity": "500L", "quantity": 10, "layers": 3, "unitName": "Units" },
+      { "description": "Water Storage Tank (Polymer)", "capacity": "1000L", "quantity": 5, "layers": 4, "foam": "single", "unitName": "Units" }
     ],
-    "verificationSeal": "VERIFIED-VTMS-SECURE-20260905"
-  },
-  "data": {
-    "_id": "66d82345e12a4b001a222222",
-    "sellerId": "66d82345e12a4b001a111111",
-    "type": "DELIVERY",
-    "amount": 38500.50,
-    "date": "2026-09-05T12:00:00.000Z",
-    "note": "Dispatched standard polymer water storage tanks batch #101",
-    "tank500": 10,
-    "tank1000": 5,
-    "tank2000": 2,
-    "transaction": { ... },
-    "receipt": { ... }
+    "previousDues": 0,
+    "currentDues": 38500.50,
+    "pdfUrl": "/api/v1/transactions/66d82345e12a4b001a222222/receipt/pdf"
   }
 }
 ```
@@ -529,35 +542,36 @@ Accept: application/json
 ```json
 {
   "success": true,
+  "receiptUrl": "/api/v1/transactions/66d82345e12a4b001a222222/receipt/pdf",
   "data": {
-    "receipt": {
-      "receiptNumber": "RCP-20260905-1049",
-      "transactionId": "66d82345e12a4b001a222222",
-      "issueDate": "2026-09-05T12:00:00.000Z",
-      "type": "DELIVERY",
-      "amount": 38500.50,
-      "paymentMode": "CASH",
-      "note": "Dispatched standard polymer water storage tanks batch #101",
-      "company": {
-        "name": "Vasudha Polymer",
-        "gstNumber": "07AAAAA0000A1Z5",
-        "phone": "+91 98765 43210",
-        "address": "Plot 42, Industrial Zone, New Delhi - 110020"
-      },
-      "seller": {
-        "_id": "66d82345e12a4b001a111111",
-        "name": "Apex Polymer Solutions",
-        "email": "contact@apexpolymer.com",
-        "phone": "+91 98765 43210",
-        "gstNumber": "07AAAAA0000A1Z5"
-      },
-      "items": [
-        { "item": "Polymer Tank 500L", "quantity": 10 },
-        { "item": "Polymer Tank 1000L", "quantity": 5 },
-        { "item": "Polymer Tank 2000L", "quantity": 2 }
-      ],
-      "verificationSeal": "VERIFIED-VTMS-SECURE-20260905"
-    }
+    "receiptNo": "RCP-1A222222",
+    "issueDate": "2026-09-05T12:00:00.000Z",
+    "status": "CONFIRMED & RECORDED",
+    "company": {
+      "name": "Vasudha Polymer",
+      "gst": "07AAAAA0000A1Z5",
+      "phone": "+91 98765 43210",
+      "address": "Plot 42, Industrial Zone, New Delhi - 110020"
+    },
+    "seller": {
+      "id": "66d82345e12a4b001a111111",
+      "name": "Apex Polymer Solutions",
+      "phone": "+91 98765 43210",
+      "email": "contact@apexpolymer.com",
+      "gstNumber": "07AAAAA0000A1Z5"
+    },
+    "items": [
+      {
+        "description": "Water Storage Tank (Polymer)",
+        "capacity": "500L",
+        "quantity": 10,
+        "layers": 3,
+        "unitName": "Units"
+      }
+    ],
+    "previousDues": 0,
+    "currentDues": 38500.50,
+    "pdfUrl": "/api/v1/transactions/66d82345e12a4b001a222222/receipt/pdf"
   }
 }
 ```
@@ -574,9 +588,10 @@ Accept: application/json
 {
   "amount": 42000.00,
   "note": "Updated batch dispatch count with 2 extra 500L tanks",
-  "tank500": 12,
-  "tank1000": 5,
-  "tank2000": 2
+  "tankItems": [
+    { "size": 500, "quantity": 12, "layers": 3, "foam": "none" },
+    { "size": 1000, "quantity": 5, "layers": 4, "foam": "single" }
+  ]
 }
 ```
 
@@ -614,8 +629,7 @@ Accept: application/json
     "totalPendingReceivables": 330000.00,
     "tankTotals": {
       "tank500": 120,
-      "tank1000": 85,
-      "tank2000": 42
+      "tank1000": 85
     },
     "topSellers": [
       {
@@ -632,7 +646,7 @@ Accept: application/json
 
 ---
 
-#### 2. Get Tank Summary Report (500L, 1000L, 2000L)
+#### 2. Get Tank Summary Report (500L, 1000L)
 * **Method**: `GET`
 * **Route**: `/api/v1/reports/tank-summary`
 * **Auth**: Bearer Token
@@ -643,8 +657,7 @@ Accept: application/json
   "success": true,
   "data": {
     "tank500": 120,
-    "tank1000": 85,
-    "tank2000": 42
+    "tank1000": 85
   }
 }
 ```

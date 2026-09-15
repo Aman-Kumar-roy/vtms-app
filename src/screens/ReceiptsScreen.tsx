@@ -200,7 +200,7 @@ export const ReceiptsScreen = ({ navigation, isEmbedded = false, isActive = true
   const fmtCurrency = (val: number) => {
     return (
       '₹ ' +
-      Number(val || 0).toLocaleString('en-IN', {
+      Math.abs(Number(val || 0)).toLocaleString('en-IN', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       })
@@ -209,6 +209,8 @@ export const ReceiptsScreen = ({ navigation, isEmbedded = false, isActive = true
 
   return (
     <AnimatedScreenWrapper
+      direction={isEmbedded ? 'none' : 'up'}
+      showTopLoader={!isEmbedded}
       style={[
         styles.container,
         { backgroundColor: colors.bgPrimary },
@@ -272,13 +274,13 @@ export const ReceiptsScreen = ({ navigation, isEmbedded = false, isActive = true
       </View>
 
       {/* Filter Tabs: All Receipts | Deliveries | Payments */}
-      <View style={[styles.tabsContainer, { backgroundColor: 'rgba(15, 23, 42, 0.8)', borderColor: colors.borderSubtle }]}>
+      <View style={[styles.tabsContainer, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
         <TouchableOpacity
           style={[styles.tabItem, typeFilter === 'ALL' && styles.tabItemActiveAll]}
           onPress={() => handleTypeFilter('ALL')}
           activeOpacity={0.8}
         >
-          <Text style={[styles.tabText, typeFilter === 'ALL' ? styles.tabTextActive : { color: colors.textMuted }]}>
+          <Text style={[styles.tabText, typeFilter === 'ALL' ? styles.tabTextActive : { color: colors.textSecondary }]}>
             All Receipts
           </Text>
         </TouchableOpacity>
@@ -382,12 +384,20 @@ export const ReceiptsScreen = ({ navigation, isEmbedded = false, isActive = true
               ? item.date
               : `${d.getDate()} ${d.toLocaleString('en-US', { month: 'short' })} ${d.getFullYear()}`;
 
-            // Itemized tank units for delivery (strict 500L, 1000L, 2000L)
+            // Itemized tank units for delivery with layers and foam
             const tankLines: string[] = [];
             if (isDelivery) {
-              if (item.tank500) tankLines.push(`${item.tank500} × 500L`);
-              if (item.tank1000) tankLines.push(`${item.tank1000} × 1000L`);
-              if (item.tank2000) tankLines.push(`${item.tank2000} × 2000L`);
+              if (item.tankItems && item.tankItems.length > 0) {
+                item.tankItems
+                  .filter((t) => Number(t.quantity) > 0)
+                  .forEach((t) => {
+                    const foamStr = t.size === 1000 && t.foam && t.foam !== 'none' ? `, ${t.foam} foam` : '';
+                    tankLines.push(`${t.quantity} × ${t.size}L (${t.layers || 3}L${foamStr})`);
+                  });
+              } else {
+                if (item.tank500) tankLines.push(`${item.tank500} × 500L`);
+                if (item.tank1000) tankLines.push(`${item.tank1000} × 1000L`);
+              }
             }
 
             return (
@@ -710,6 +720,7 @@ const styles = StyleSheet.create({
   amountText: {
     fontSize: 17,
     fontWeight: '900',
+    fontVariant: ['tabular-nums'],
   },
   cardFooter: {
     flexDirection: 'row',

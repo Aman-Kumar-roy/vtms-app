@@ -71,16 +71,18 @@ export const AddSellerScreen = ({ route, navigation }: any) => {
 
     setLoading(true);
     try {
+      let serverSuccessMsg = '';
       if (isEditing) {
-        await updateSellerApi(editSeller._id || editSeller.id, {
+        const updated = await updateSellerApi(editSeller._id || editSeller.id, {
           name: name.trim(),
           email: email.trim() || undefined,
           phone: phone.trim() || undefined,
           address: address.trim() || undefined,
           gstNumber: gstNumber.trim().toUpperCase() || undefined,
         });
+        serverSuccessMsg = (updated as any)?.serverMessage || 'Seller updated successfully.';
       } else {
-        await createSellerApi({
+        const created = await createSellerApi({
           name: name.trim(),
           email: email.trim() || undefined,
           phone: phone.trim() || undefined,
@@ -88,12 +90,12 @@ export const AddSellerScreen = ({ route, navigation }: any) => {
           gstNumber: gstNumber.trim().toUpperCase() || undefined,
           requireAdditional,
         });
+        serverSuccessMsg = (created as any)?.serverMessage || 'Seller created successfully.';
       }
       await invalidateSellers();
-      const msg = isEditing ? 'Vendor updated successfully!' : 'Seller created successfully.';
-      navigation.navigate('Sellers', { successMsg: msg });
+      navigation.navigate('Sellers', { successMsg: serverSuccessMsg });
     } catch (e: any) {
-      setErrors({ form: e.message || 'Failed to save vendor details' });
+      setErrors({ form: e.message });
     } finally {
       setLoading(false);
     }

@@ -123,7 +123,13 @@ export const createTransactionApi = async (data: {
   note?: string;
   tank500?: number;
   tank1000?: number;
-  tank2000?: number;
+  tankItems?: Array<{
+    size: 500 | 1000;
+    quantity: number;
+    layers: number;
+    foam?: 'none' | 'single' | 'double';
+  }>;
+  vehicleNumber?: string;
   paymentMode?: string;
 }): Promise<Transaction> => {
   try {
@@ -132,6 +138,7 @@ export const createTransactionApi = async (data: {
       const tx = response.data.transaction || response.data.data?.transaction || response.data.data;
       tx.id = tx._id || tx.id;
       tx.receipt = response.data.receipt || response.data.data?.receipt || tx.receipt;
+      tx.serverMessage = response.data.message || response.data.data?.message;
       try {
         await invalidateTransactions(data.sellerId);
       } catch (invalErr) {
@@ -153,7 +160,13 @@ export const createDeliveryApi = async (data: {
   note?: string;
   tank500?: number;
   tank1000?: number;
-  tank2000?: number;
+  tankItems?: Array<{
+    size: 500 | 1000;
+    quantity: number;
+    layers: number;
+    foam?: 'none' | 'single' | 'double';
+  }>;
+  vehicleNumber?: string;
 }): Promise<Transaction> => {
   return createTransactionApi({
     ...data,
@@ -174,7 +187,6 @@ export const createPaymentApi = async (data: {
     type: 'PAYMENT',
     tank500: 0,
     tank1000: 0,
-    tank2000: 0,
   });
 };
 
@@ -186,22 +198,43 @@ export const updateTransactionApi = async (
     note?: string;
     tank500?: number;
     tank1000?: number;
-    tank2000?: number;
     paymentMode?: string;
   }
-): Promise<Transaction> => {
-  const response = await apiClient.put<ApiResponse<Transaction>>(`/transactions/${id}`, data);
-  if (response.data.success && response.data.data) {
-    const tx = response.data.data;
-    tx.id = tx._id || tx.id;
-    return tx;
+): Promise<Transaction & { serverMessage?: string }> => {
+  try {
+    const response = await apiClient.put<any>(`/transactions/${id}`, data);
+    if (response.data && response.data.success !== false) {
+      const tx = response.data.data?.transaction || response.data.data || response.data.transaction;
+      tx.id = tx._id || tx.id;
+      return {
+        ...tx,
+        serverMessage: response.data.message || response.data.data?.message,
+      };
+    }
+    throw new Error(response.data?.message || response.data?.error || 'Failed to update transaction');
+  } catch (err: any) {
+    const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to update transaction';
+    throw new Error(msg);
   }
-  throw new Error(response.data.message || 'Failed to update transaction');
 };
 
-export const deleteTransactionApi = async (id: string): Promise<void> => {
-  const response = await apiClient.delete<ApiResponse<any>>(`/transactions/${id}`);
-  if (!response.data.success) {
-    throw new Error(response.data.message || 'Failed to delete transaction');
+export const deleteTransactionApi = async (id: string): Promise<{ success: boolean; message: string }> => {
+  try {
+    const response = await apiClient.delete<any>(`/transactions/${id}`);
+    if (response.data && response.data.success !== false) {
+      return {
+        success: true,
+        message: response.data.message || 'Transaction record deleted successfully.',
+      };
+    }
+    throw new Error(response.data?.message || response.data?.error || 'Failed to delete transaction');
+  } catch (err: any) {
+    const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to delete transaction';
+    throw new Error(msg);
   }
+};
+
+export const sendWhatsAppReceiptApi = async (transactionId: string): Promise<{ success: boolean; message: string; data?: any }> => {
+  const response = await apiClient.post<any>(`/transactions/${transactionId}/send-receipt`);
+  return response.data;
 };

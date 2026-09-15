@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../constants/theme';
+import { SignOutConfirmModal } from './SignOutConfirmModal';
 
 interface HeaderBarProps {
   title?: string;
@@ -9,6 +10,7 @@ interface HeaderBarProps {
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({ title }) => {
   const { user, logout } = useAuth();
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
   const initials = user?.name
     ? user.name
@@ -38,7 +40,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({ title }) => {
       {/* Right: Logout Icon Button */}
       <TouchableOpacity
         style={styles.logoutIconButton}
-        onPress={logout}
+        onPress={() => setShowSignOutConfirm(true)}
         activeOpacity={0.7}
         accessibilityLabel="Logout"
       >
@@ -47,6 +49,16 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({ title }) => {
         </View>
         <Text style={styles.logoutLabel}>Logout</Text>
       </TouchableOpacity>
+
+      <SignOutConfirmModal
+        visible={showSignOutConfirm}
+        onClose={() => setShowSignOutConfirm(false)}
+        onConfirm={() => {
+          setShowSignOutConfirm(false);
+          logout();
+        }}
+        user={user}
+      />
     </View>
   );
 };

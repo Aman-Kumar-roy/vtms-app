@@ -113,13 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthToken(data.token);
       await saveStoredToken(data.token);
     } catch (err: any) {
-      const respData = err?.response?.data;
-      const status = err?.response?.status;
-      const rawMsg = (respData?.message || respData?.error || err.message || '').toLowerCase();
-      if (status === 401 || rawMsg.includes('credential') || rawMsg.includes('invalid') || rawMsg.includes('password') || rawMsg.includes('email')) {
-        throw new Error('Invalid email or password. Please check your credentials and try again.');
-      }
-      throw new Error(respData?.message || respData?.error || err.message || 'Unable to sign in. Please verify your credentials.');
+      throw new Error(err.message || 'Unable to sign in. Please verify your credentials.');
     } finally {
       setIsLoading(false);
     }

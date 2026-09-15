@@ -10,15 +10,19 @@
 - **ALWAYS KEEP AI FILES UPDATED:** AI agents MUST update all documentation inside the `app/` folder (`app/SKILLS.md`, `app/README.md`, `app/API_DOCUMENTATION.md`, `app/.agents/AGENTS.md`) whenever making code, architectural, or UI changes.
 
 ### IMPORTANT RULE: Tank Capacities & Unit Display Constraints
-- Only the following tank sizes are allowed: `tank500` (500L), `tank1000` (1,000L), `tank2000` (2,000L) ONLY.
-- Do NOT add `tank300`, `tank750`, `tank1500`, or any other tank size.
+- Only the following tank sizes are allowed: `tank500` (500L) and `tank1000` (1,000L) ONLY. `2000L` (`tank2000`) has been completely removed and is prohibited with 400 Bad Request.
+- Do NOT add `tank300`, `tank750`, `tank1500`, `tank2000`, or any other tank size.
+- Deliveries support flexible line items via `tankItems: [{ size: 500 | 1000, quantity: number, layers: 3-6, foam?: 'none' | 'single' | 'double' }]`.
+- Tank Layers: 3 to 6 layers mandatory per tank line item.
+- Foam Type (1000L Tanks Only): `none`, `single`, `double` (default `'none'`). Foam is prohibited on 500L tanks.
+- Back Due Tracking: Every transaction tracks `previousDues` (balance before transaction) and `currentDues` (balance after transaction).
 - Tank reporting and breakdown MUST display **Tank Unit Numbers / Quantities** (e.g. `5 Tanks`, `12 Units`), NOT volume in Liters (`5,000 L`).
 - Do NOT add fields unless explicitly instructed.
 
 ---
 
 ### 1. Transaction-Creation Flow & In-Context Modals
-- **In-Context Creation Modal**: Use [`AddTransactionModal.tsx`](file:///d:/vasudha-polymer/app/src/components/AddTransactionModal.tsx) across mobile screens (`SellersScreen`, `SellerDetailScreen`, `TransactionsScreen`) supporting `DELIVERY` (with tank unit steppers `500L`, `1000L`, `2000L`) and `PAYMENT` modes.
+- **In-Context Creation Modal**: Use [`AddTransactionModal.tsx`](file:///d:/vasudha-polymer/app/src/components/AddTransactionModal.tsx) across mobile screens (`SellersScreen`, `SellerDetailScreen`, `TransactionsScreen`) supporting `DELIVERY` (with flexible `500L` and `1000L` line items) and `PAYMENT` modes.
 - **Do NOT Navigate Away on API Success**: Never trigger `navigation.goBack()` or redirect the user to an unrelated screen after creating a delivery or payment.
 - **In-Context Experience**: Stay on the screen, display a floating toast (`"Transaction created successfully."`), and present an in-place confirmation card with:
   - Success badge (`✓`)
@@ -27,15 +31,19 @@
     1. `View Official Receipt` — Opens `ReceiptModal` displaying the server-generated voucher
     2. `+ Record Another` — Clears form inputs while keeping modal ready for the next entry
     3. `Done` — Gracefully closes modal and refreshes data in-place
-- **Pre-Submission Summary**: Display live vendor name, itemized unit quantities, and total amount before submission.
+- **Pre-Submission Summary**: Display live vendor name, itemized unit quantities, previous dues, current dues, and total amount before submission. The summary container uses responsive flex-wrap so growing item lists and totals never clip or overflow.
+- **Multiline Reference / Note Input**:
+  - Delivery and Payment creation modals provide a multiline `<TextInput multiline={true} numberOfLines={3} maxLength={500}>` with character counter (`{note.length}/500`).
+- **Clean Yellow Dues & Number Formatting**:
+  - Outstanding dues are styled in amber / yellow (`#f59e0b` / `text-amber-400`).
+  - Currency formatters use `Math.abs()` to display clean positive numbers without negative sign prefixes.
 
 ### 2. Business Logic & Terminology (Selling Units)
 - **Core Operation**: We are selling polymer water storage tank units to sellers/vendors.
 - **Terminology**: Never use "Volume" or "Report" in transaction screens.
 - **Product Items**: Water Storage Tanks (Polymer) with strict sizes:
-  - `500L Storage Tank`
-  - `1,000L Storage Tank`
-  - `2,000L Storage Tank`
+  - `500L Storage Tank` (3 to 6 Layers)
+  - `1,000L Storage Tank` (3 to 6 Layers, Foam: none/single/double)
 
 ### 3. Server-Generated Official Receipts & Canonical PDF Architecture
 - **Single Source of Truth**: The mobile application MUST consume the **identical server-generated vector PDF** produced by the Express backend (`GET /api/v1/transactions/:id/receipt/pdf`).
@@ -124,3 +132,11 @@
 - Start Metro Bundler: `npx expo start`
 - Start Web Mode: `npx expo start --web`
 - Run API Test Suite: `npm run test:api`
+
+### 14. Server Database Performance & Pagination Parity
+- **True Database-Level Pagination**: `/sellers/:id` and `/transactions` execute `.skip()` and `.limit()` directly at the MongoDB layer with maximum query limits (max 100).
+- **MongoDB Aggregation Pipelines**: Vendor statistics (`totalDeliveries`, `totalPaid`, `tank500`, `tank1000`) and reports are aggregated in-engine via MongoDB `$group` pipelines (O(1) memory).
+- **Compound & Search Indexes**:
+  - `TransactionSchema`: Indexed on `{ sellerId: 1, date: -1, createdAt: -1 }`, `{ type: 1, date: -1, createdAt: -1 }`, `{ date: -1, createdAt: -1 }`, `{ parentId: 1, type: 1 }`, and `{ createdAt: -1 }`.
+  - `SellerSchema`: Indexed on `{ createdAt: -1 }`, `{ name: 1 }`, `{ phone: 1 }`, `{ email: 1 }`, and `{ gstNumber: 1 }`.
+- **Safe Regular Expression Sanitization**: All search filters are escaped with `escapeRegex` and truncated to 100 characters to prevent ReDoS vulnerability.

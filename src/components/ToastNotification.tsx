@@ -5,8 +5,11 @@ import {
   StyleSheet,
   TouchableOpacity,
   Platform,
+  View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../context/ThemeContext';
 
 interface ToastNotificationProps {
   visible: boolean;
@@ -21,48 +24,68 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
   message,
   type = 'success',
   onDismiss,
-  duration = 2600,
+  duration = 2800,
 }) => {
+  const insets = useSafeAreaInsets();
+  const { colors, theme } = useTheme();
+
   const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(-20)).current;
+  const translateY = useRef(new Animated.Value(-50)).current;
+  const scale = useRef(new Animated.Value(0.92)).current;
 
   useEffect(() => {
     if (visible) {
-      // Fade in & slide down
+      // Spring down vertically with scale and fade
       Animated.parallel([
         Animated.timing(opacity, {
           toValue: 1,
-          duration: 220,
+          duration: 180,
           useNativeDriver: Platform.OS !== 'web',
         }),
-        Animated.timing(translateY, {
+        Animated.spring(translateY, {
           toValue: 0,
-          duration: 220,
+          friction: 7,
+          tension: 65,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.spring(scale, {
+          toValue: 1,
+          friction: 7,
+          tension: 65,
           useNativeDriver: Platform.OS !== 'web',
         }),
       ]).start();
 
       // Auto dismiss after specified duration
       const timer = setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(opacity, {
-            toValue: 0,
-            duration: 220,
-            useNativeDriver: Platform.OS !== 'web',
-          }),
-          Animated.timing(translateY, {
-            toValue: -20,
-            duration: 220,
-            useNativeDriver: Platform.OS !== 'web',
-          }),
-        ]).start(() => {
-          onDismiss();
-        });
+        handleDismiss();
       }, duration);
 
       return () => clearTimeout(timer);
     }
-  }, [visible, opacity, translateY, duration, onDismiss]);
+  }, [visible, duration]);
+
+  const handleDismiss = () => {
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.timing(translateY, {
+        toValue: -50,
+        duration: 200,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.timing(scale, {
+        toValue: 0.92,
+        duration: 200,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+    ]).start(() => {
+      onDismiss();
+    });
+  };
 
   if (!visible) return null;
 
@@ -75,73 +98,172 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
     ? 'alert-circle'
     : 'information-circle';
 
-  const bgColor = isSuccess
-    ? '#064e3b'
+  const accentColor = isSuccess
+    ? '#10b981'
     : isError
-    ? '#7f1d1d'
-    : '#0c4a6e';
+    ? '#ef4444'
+    : '#0284c7';
+
+  const badgeBg = isSuccess
+    ? 'rgba(16, 185, 129, 0.15)'
+    : isError
+    ? 'rgba(239, 68, 68, 0.15)'
+    : 'rgba(2, 132, 199, 0.15)';
 
   const borderColor = isSuccess
-    ? '#059669'
+    ? 'rgba(16, 185, 129, 0.4)'
     : isError
-    ? '#dc2626'
-    : '#0284c7';
+    ? 'rgba(239, 68, 68, 0.4)'
+    : 'rgba(2, 132, 199, 0.4)';
+
+  const topOffset = Math.max(insets.top + (Platform.OS === 'ios' ? 8 : 14), 44);
 
   return (
     <Animated.View
       style={[
-        styles.toastContainer,
+        styles.toastWrapper,
         {
-          backgroundColor: bgColor,
-          borderColor: borderColor,
+          top: topOffset,
           opacity,
-          transform: [{ translateY }],
+          transform: [{ translateY }, { scale }],
         },
       ]}
     >
-      <Ionicons
-        name={iconName}
-        size={18}
-        color="#ffffff"
-        style={{ marginRight: 8 }}
-      />
-      <Text style={styles.toastText} numberOfLines={2}>
-        {message}
-      </Text>
-      <TouchableOpacity onPress={onDismiss} style={styles.closeHitSlop}>
-        <Ionicons name="close" size={16} color="rgba(255, 255, 255, 0.7)" />
-      </TouchableOpacity>
+      <View
+        style={[
+          styles.toastContainer,
+          {
+            backgroundColor: theme === 'dark' ? '#091322' : '#ffffff',
+            borderColor: borderColor,
+            shadowColor: accentColor,
+          },
+        ]}
+      >
+        {/* Glowing Top Accent Line */}
+        <View style={[styles.topGlowLine, { backgroundColor: accentColor }]} />
+
+        <View style={styles.toastContentRow}>
+          {/* Glowing Icon Square */}
+          <View
+            style={[
+              styles.iconBox,
+              {
+                backgroundColor: badgeBg,
+                borderColor: borderColor,
+              },
+            ]}
+          >
+            <Ionicons name={iconName} size={20} color={accentColor} />
+          </View>
+
+          {/* Text Information */}
+          <View style={styles.textContainer}>
+            <View style={styles.headerTagRow}>
+              <View style={[styles.tagPill, { backgroundColor: badgeBg }]}>
+                <Text style={[styles.tagText, { color: accentColor }]}>
+                  {isSuccess ? 'SUCCESS' : isError ? 'ATTENTION' : 'NOTICE'}
+                </Text>
+              </View>
+            </View>
+            <Text
+              style={[
+                styles.toastMessage,
+                { color: theme === 'dark' ? '#f8fafc' : '#0f172a' },
+              ]}
+              numberOfLines={2}
+            >
+              {message}
+            </Text>
+          </View>
+
+          {/* Dismiss Button */}
+          <TouchableOpacity
+            onPress={handleDismiss}
+            style={styles.closeBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="close"
+              size={16}
+              color={theme === 'dark' ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.4)'}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
     </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  toastContainer: {
+  toastWrapper: {
     position: 'absolute',
-    top: Platform.OS === 'android' ? 50 : 60,
-    left: 20,
-    right: 20,
-    zIndex: 9999,
+    left: 16,
+    right: 16,
+    zIndex: 99999,
+    elevation: 20,
+    alignItems: 'center',
+  },
+  toastContainer: {
+    width: '100%',
+    borderRadius: 18,
+    borderWidth: 1.2,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 12,
+  },
+  topGlowLine: {
+    height: 2.5,
+    width: '100%',
+    opacity: 0.85,
+  },
+  toastContentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10,
   },
-  toastText: {
+  iconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  textContainer: {
     flex: 1,
-    color: '#ffffff',
+    paddingRight: 6,
+  },
+  headerTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 3,
+  },
+  tagPill: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  tagText: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  toastMessage: {
     fontSize: 13,
     fontWeight: '700',
+    lineHeight: 17,
   },
-  closeHitSlop: {
-    padding: 4,
-    marginLeft: 6,
+  closeBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
 });

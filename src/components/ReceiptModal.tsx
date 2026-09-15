@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Transaction, Seller, ServerReceipt } from '../types';
 import { getTransactionReceiptApi, downloadReceiptPdfApi } from '../api/transaction';
 import { useTheme } from '../context/ThemeContext';
+import { ToastNotification } from './ToastNotification';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
@@ -26,10 +27,15 @@ interface ReceiptModalProps {
   seller?: Seller | null;
 }
 
-
+interface NormalizedTankItem {
+  size: 500 | 1000;
+  quantity: number;
+  layers: number | null;
+  foam?: string;
+}
 
 const formatCurrency = (val: number = 0) =>
-  '₹ ' + Number(val || 0).toLocaleString('en-IN', {
+  '₹ ' + Math.abs(Number(val || 0)).toLocaleString('en-IN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -69,11 +75,12 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 }) => {
   const { colors } = useTheme();
 
-  // All hooks defined at the top level — NEVER after an early return!
+  // All hooks defined at the top level
   const [receipt, setReceipt] = useState<ServerReceipt | null>(propReceipt || transaction?.receipt || null);
   const [loading, setLoading] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState<boolean>(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (!visible) {
@@ -81,31 +88,31 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       return;
     }
 
+    // Set initial placeholder receipt if provided
     if (propReceipt) {
       setReceipt(propReceipt);
-      setFetchError(null);
-      return;
-    }
-
-    if (transaction?.receipt) {
+    } else if (transaction?.receipt) {
       setReceipt(transaction.receipt);
-      setFetchError(null);
-      return;
+    } else {
+      setReceipt(null);
     }
 
-    // Previous transaction without pre-attached receipt: reset and fetch latest official metadata
-    setReceipt(null);
     const txId = transaction?._id || transaction?.id;
     if (txId) {
-      setLoading(true);
+      if (!propReceipt && !transaction?.receipt) {
+        setLoading(true);
+      }
       setFetchError(null);
+      // Always communicate with backend to fetch authoritative server receipt
       getTransactionReceiptApi(String(txId))
         .then((data) => {
           setReceipt(data);
         })
         .catch((err) => {
           console.warn('Failed to fetch server receipt:', err);
-          setFetchError(err.message || 'Could not load official receipt from server');
+          if (!propReceipt && !transaction?.receipt) {
+            setFetchError(err.message || 'Could not load official receipt from server');
+          }
         })
         .finally(() => {
           setLoading(false);
@@ -146,20 +153,67 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   const vendorEmail = receipt?.seller?.email || seller?.email || transaction?.sellerEmail || transaction?.seller?.email || '';
   const vendorAddress = receipt?.seller?.address || seller?.address || transaction?.sellerAddress || transaction?.seller?.address || '';
 
-  const tank500Qty = transaction?.tank500 ?? 0;
-  const tank1000Qty = transaction?.tank1000 ?? 0;
-  const tank2000Qty = transaction?.tank2000 ?? 0;
+  // Parse structured tank items for delivery
+  const rawTankItems = (transaction?.tankItems && transaction.tankItems.length > 0)
+    ? transaction.tankItems
+    : (receipt?.transaction?.tankItems && receipt.transaction.tankItems.length > 0)
+    ? receipt.transaction.tankItems
+    : null;
 
-  const hasTanks = isDelivery && (tank500Qty > 0 || tank1000Qty > 0 || tank2000Qty > 0);
-  const tankParts = [
-    tank500Qty > 0 ? `500L: ${tank500Qty}` : null,
-    tank1000Qty > 0 ? `1000L: ${tank1000Qty}` : null,
-    tank2000Qty > 0 ? `2000L: ${tank2000Qty}` : null,
-  ].filter(Boolean).join(' • ');
+  const normalizedItems: NormalizedTankItem[] = [];
+  if (isDelivery) {
+    if (rawTankItems && rawTankItems.length > 0) {
+      rawTankItems.forEach((it: any) => {
+        const qty = Number(it.quantity) || 0;
+        if (qty > 0) {
+          normalizedItems.push({
+            size: Number(it.size) === 1000 ? 1000 : 500,
+            quantity: qty,
+            layers: it.layers ? Number(it.layers) : null,
+            foam: it.size === 1000 ? (it.foam || 'none') : undefined,
+          });
+        }
+      });
+    } else {
+      const t500 = Number(transaction?.tank500 ?? receipt?.transaction?.tank500 ?? 0);
+      const t1000 = Number(transaction?.tank1000 ?? receipt?.transaction?.tank1000 ?? 0);
+      const t500Layers = transaction?.tank500_layers ?? receipt?.transaction?.tank500_layers;
+      const t1000Layers = transaction?.tank1000_layers ?? receipt?.transaction?.tank1000_layers;
+      const t1000Foam = transaction?.tank1000_foam ?? receipt?.transaction?.tank1000_foam;
+
+      if (t500 > 0) {
+        normalizedItems.push({
+          size: 500,
+          quantity: t500,
+          layers: t500Layers ? Number(t500Layers) : null,
+        });
+      }
+      if (t1000 > 0) {
+        normalizedItems.push({
+          size: 1000,
+          quantity: t1000,
+          layers: t1000Layers ? Number(t1000Layers) : null,
+          foam: t1000Foam || 'none',
+        });
+      }
+    }
+  }
+
+  const totalUnits = normalizedItems.reduce((acc, it) => acc + it.quantity, 0);
+
+  // Authoritative Ledger Dues (Strictly read-only)
+  const effectivePreviousDues = transaction?.previousDues !== undefined && transaction?.previousDues !== null
+    ? Number(transaction.previousDues)
+    : (receipt?.settlement?.previousDues ?? receipt?.transaction?.previousDues ?? 0);
+
+  const effectiveCurrentDues = transaction?.currentDues !== undefined && transaction?.currentDues !== null
+    ? Number(transaction.currentDues)
+    : (receipt?.settlement?.closingBalance ?? (isDelivery ? effectivePreviousDues + txAmount : effectivePreviousDues - txAmount));
 
   const paymentModeVal = (receipt?.transaction?.paymentMode || transaction?.paymentMode || 'UPI').toUpperCase();
-  const noteVal = receipt?.transaction?.note || transaction?.note || '';
+  const noteVal = (receipt?.transaction?.note || transaction?.note || '').trim();
 
+  // Unified single action: Print or download the authoritative server vector PDF
   const handleDownloadPdf = async () => {
     const txId = transaction?._id || transaction?.id || receipt?.transaction?.id;
     if (!txId) {
@@ -175,33 +229,14 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         await Sharing.shareAsync(uri, {
           UTI: '.pdf',
           mimeType: 'application/pdf',
-          dialogTitle: `Download Receipt ${receiptNo}`,
+          dialogTitle: `Receipt ${receiptNo}`,
         });
       } else {
         await Print.printAsync({ uri });
       }
     } catch (err: any) {
       console.warn('PDF download/share error:', err);
-      Alert.alert('Download Receipt', err?.message || 'Unable to download official receipt.');
-    } finally {
-      setDownloadingPdf(false);
-    }
-  };
-
-  const handlePrintPdf = async () => {
-    const txId = transaction?._id || transaction?.id || receipt?.transaction?.id;
-    if (!txId) {
-      Alert.alert('Print Receipt', 'Transaction identifier not found.');
-      return;
-    }
-
-    setDownloadingPdf(true);
-    try {
-      const uri = await downloadReceiptPdfApi(String(txId));
-      await Print.printAsync({ uri });
-    } catch (err: any) {
-      console.warn('PDF print error:', err);
-      Alert.alert('Print Receipt', err?.message || 'Unable to print official receipt.');
+      Alert.alert('Download Receipt', err?.message || 'Unable to generate official receipt PDF.');
     } finally {
       setDownloadingPdf(false);
     }
@@ -211,7 +246,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     <Modal animationType="fade" transparent visible={visible} onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={[styles.modalContainer, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
-          {/* Top Control Bar (matching web preview banner) */}
+          {/* Top Control Bar (Clean title + single close button, zero duplicate print buttons) */}
           <View style={[styles.topActions, { borderBottomColor: colors.borderSubtle }]}>
             <View style={styles.topTitleRow}>
               <Ionicons name="shield-checkmark" size={16} color="#38bdf8" style={{ marginRight: 6 }} />
@@ -219,26 +254,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 Official Receipt Preview
               </Text>
             </View>
-            <View style={styles.topButtonsRow}>
-              <TouchableOpacity
-                style={styles.printHeaderBtn}
-                onPress={handlePrintPdf}
-                disabled={downloadingPdf}
-                activeOpacity={0.8}
-              >
-                {downloadingPdf ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <>
-                    <Ionicons name="print-outline" size={14} color="#ffffff" style={{ marginRight: 5 }} />
-                    <Text style={styles.printHeaderBtnText}>Print / PDF</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="close" size={20} color={colors.textMuted} />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Ionicons name="close" size={22} color={colors.textMuted} />
+            </TouchableOpacity>
           </View>
 
           {loading || (!receipt && !fetchError) ? (
@@ -285,7 +303,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 </View>
               )}
 
-              {/* ── The printable receipt card (Exact Web Parity) ── */}
+              {/* ── The printable receipt card (Exact Web & PDF Parity) ── */}
               <View style={styles.receiptCard}>
                 {/* Header Band */}
                 <View style={styles.headerBand}>
@@ -316,6 +334,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                       </Text>
                     </View>
                     <Text style={styles.voucherNoText}>{receiptNo}</Text>
+                    <Text style={styles.voucherDateText}>
+                      {isDelivery ? 'Order Date: ' : 'Date: '}{formatDate(txDate)}
+                    </Text>
                   </View>
                 </View>
 
@@ -348,7 +369,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                     ) : null}
                   </View>
 
-                  {/* Details Key-Value Table */}
+                  {/* Key-Value Summary Block */}
                   <View style={styles.tableBlock}>
                     <View style={styles.tableRow}>
                       <Text style={styles.rowLabel}>Transaction ID</Text>
@@ -368,33 +389,78 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                     </View>
 
                     <View style={styles.tableRow}>
-                      <Text style={styles.rowLabel}>Date of Record</Text>
+                      <Text style={styles.rowLabel}>{isDelivery ? 'Order Date' : 'Payment Date'}</Text>
                       <Text style={styles.rowVal}>{formatDate(txDate)}</Text>
                     </View>
 
-                    {hasTanks ? (
-                      <View style={styles.tableRow}>
-                        <Text style={styles.rowLabel}>Tanks Delivered</Text>
-                        <Text style={[styles.rowVal, { color: '#1e40af' }]}>{tankParts}</Text>
-                      </View>
-                    ) : null}
-
-                    {!isDelivery ? (
+                    {!isDelivery && (
                       <View style={styles.tableRow}>
                         <Text style={styles.rowLabel}>Payment Mode</Text>
                         <View style={styles.paymentModeBadge}>
                           <Text style={styles.paymentModeText}>{paymentModeVal}</Text>
                         </View>
                       </View>
-                    ) : null}
+                    )}
+
+                    {!isDelivery && transaction?.parentDelivery?.date && (
+                      <View style={styles.tableRow}>
+                        <Text style={styles.rowLabel}>Linked Order Date</Text>
+                        <Text style={styles.rowVal}>{formatDate(transaction.parentDelivery.date)}</Text>
+                      </View>
+                    )}
 
                     {noteVal ? (
-                      <View style={styles.tableRow}>
+                      <View style={[styles.tableRow, { alignItems: 'flex-start' }]}>
                         <Text style={styles.rowLabel}>Reference / Note</Text>
-                        <Text style={styles.rowVal} numberOfLines={2}>{noteVal}</Text>
+                        <Text style={[styles.rowVal, { flex: 1, marginLeft: 12, textAlign: 'right' }]}>{noteVal}</Text>
                       </View>
                     ) : null}
                   </View>
+
+                  {/* ── Structured Itemized Delivery Table (for 18+ tanks & multiple variants) ── */}
+                  {isDelivery && normalizedItems.length > 0 && (
+                    <View style={styles.tankTableCard}>
+                      <View style={styles.tankTableHeader}>
+                        <Ionicons name="water" size={13} color="#2563eb" style={{ marginRight: 5 }} />
+                        <Text style={styles.tankTableTitle}>ITEMIZED TANKS DELIVERED</Text>
+                      </View>
+
+                      {/* Headings */}
+                      <View style={styles.tankTableRowHeader}>
+                        <Text style={[styles.tankTableHeadCell, { width: 22 }]}>#</Text>
+                        <Text style={[styles.tankTableHeadCell, { flex: 1.3 }]}>Capacity</Text>
+                        <Text style={[styles.tankTableHeadCell, { flex: 1.5 }]}>Specification</Text>
+                        <Text style={[styles.tankTableHeadCell, { width: 55, textAlign: 'right' }]}>Qty</Text>
+                      </View>
+
+                      {/* Item Rows */}
+                      {normalizedItems.map((item, idx) => {
+                        const foamStr = item.size === 1000 && item.foam && item.foam !== 'none'
+                          ? ` • ${item.foam.charAt(0).toUpperCase() + item.foam.slice(1)} Foam`
+                          : '';
+                        return (
+                          <View key={idx} style={[styles.tankTableRow, idx % 2 === 1 && { backgroundColor: '#f8fafc' }]}>
+                            <Text style={[styles.tankTableCell, { width: 22, color: '#94a3b8' }]}>{idx + 1}</Text>
+                            <Text style={[styles.tankTableCell, { flex: 1.3, fontWeight: '800', color: '#0f172a' }]}>
+                              {item.size}L Tank
+                            </Text>
+                            <Text style={[styles.tankTableCell, { flex: 1.5, color: '#475569' }]}>
+                              {item.layers ? `${item.layers} Layers` : 'Standard'}{foamStr}
+                            </Text>
+                            <Text style={[styles.tankTableCell, { width: 55, textAlign: 'right', fontWeight: '800', color: '#1d4ed8' }]}>
+                              {item.quantity} Units
+                            </Text>
+                          </View>
+                        );
+                      })}
+
+                      {/* Summary Footnote */}
+                      <View style={styles.tankTableFooter}>
+                        <Text style={styles.tankTableFooterLabel}>Total Delivered Quantity:</Text>
+                        <Text style={styles.tankTableFooterVal}>{totalUnits} Tanks</Text>
+                      </View>
+                    </View>
+                  )}
 
                   {/* Highlight Amount Box */}
                   <View style={[styles.amountCard, {
@@ -407,6 +473,32 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                     <Text style={[styles.amountValue, { color: isDelivery ? '#312e81' : '#065f46' }]}>
                       {formatCurrency(txAmount)}
                     </Text>
+                  </View>
+
+                  {/* Financial Balance Summary (Authoritative Ledger Dues) */}
+                  <View style={styles.duesCard}>
+                    <View style={styles.duesCol}>
+                      <Text style={styles.duesColLabel}>
+                        {effectivePreviousDues < 0 ? 'PREVIOUS ADVANCE' : 'PREVIOUS DUES'}
+                      </Text>
+                      <Text style={[styles.duesColVal, effectivePreviousDues < 0 && { color: '#047857' }]}>
+                        {effectivePreviousDues < 0 ? `+ ${formatCurrency(effectivePreviousDues)}` : formatCurrency(effectivePreviousDues)}
+                      </Text>
+                    </View>
+                    <View style={styles.duesCol}>
+                      <Text style={styles.duesColLabel}>{isDelivery ? 'DELIVERY BILL' : 'PAYMENT PAID'}</Text>
+                      <Text style={[styles.duesColVal, { color: isDelivery ? '#4338ca' : '#047857' }]}>
+                        {isDelivery ? '+' : '-'}{formatCurrency(txAmount)}
+                      </Text>
+                    </View>
+                    <View style={styles.duesCol}>
+                      <Text style={styles.duesColLabel}>
+                        {effectiveCurrentDues < 0 ? 'CLOSING ADVANCE' : 'CLOSING BALANCE'}
+                      </Text>
+                      <Text style={[styles.duesColVal, { fontWeight: '900', color: effectiveCurrentDues < 0 ? '#047857' : '#0f172a' }]}>
+                        {effectiveCurrentDues < 0 ? `+ ${formatCurrency(effectiveCurrentDues)}` : formatCurrency(effectiveCurrentDues)}
+                      </Text>
+                    </View>
                   </View>
 
                   {/* Signatures */}
@@ -434,7 +526,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             </ScrollView>
           )}
 
-          {/* Action Footer Bar */}
+          {/* Action Footer Bar: Single Primary Action + Done */}
           <View style={[styles.actionFooter, { borderTopColor: colors.borderSubtle, backgroundColor: colors.bgSecondary }]}>
             <TouchableOpacity
               style={styles.actionDownloadBtn}
@@ -446,8 +538,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
                 <>
-                  <Ionicons name="download-outline" size={16} color="#ffffff" style={{ marginRight: 6 }} />
-                  <Text style={styles.actionBtnText}>Download PDF</Text>
+                  <Ionicons name="print-outline" size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                  <Text style={styles.actionBtnText}>Print / Download PDF</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -460,6 +552,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* In-Modal Floating Toast */}
+        <ToastNotification
+          visible={!!toastMsg}
+          message={toastMsg || ''}
+          onDismiss={() => setToastMsg(null)}
+        />
       </View>
     </Modal>
   );
@@ -495,24 +594,6 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 14,
-    fontWeight: '800',
-  },
-  topButtonsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  printHeaderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0284c7',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  printHeaderBtnText: {
-    color: '#ffffff',
-    fontSize: 12,
     fontWeight: '800',
   },
   closeBtn: {
@@ -629,6 +710,12 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     marginTop: 4,
   },
+  voucherDateText: {
+    color: '#cbd5e1',
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 2,
+  },
   bodyContent: {
     padding: 16,
   },
@@ -729,12 +816,80 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
   },
+  tankTableCard: {
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginBottom: 14,
+  },
+  tankTableHeader: {
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#cbd5e1',
+  },
+  tankTableTitle: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#334155',
+    letterSpacing: 0.5,
+  },
+  tankTableRowHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  tankTableHeadCell: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748b',
+  },
+  tankTableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  tankTableCell: {
+    fontSize: 10.5,
+  },
+  tankTableFooter: {
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#cbd5e1',
+  },
+  tankTableFooterLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#475569',
+    marginRight: 6,
+  },
+  tankTableFooterVal: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#1e3a8a',
+  },
   amountCard: {
     borderRadius: 12,
     padding: 14,
     alignItems: 'center',
     borderWidth: 1,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   amountLabel: {
     fontSize: 10,
@@ -746,6 +901,33 @@ const styles = StyleSheet.create({
   amountValue: {
     fontSize: 24,
     fontWeight: '900',
+  },
+  duesCard: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 14,
+  },
+  duesCol: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  duesColLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#64748b',
+    letterSpacing: 0.5,
+    marginBottom: 3,
+  },
+  duesColVal: {
+    fontSize: 11,
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    color: '#334155',
   },
   signatureRow: {
     flexDirection: 'row',

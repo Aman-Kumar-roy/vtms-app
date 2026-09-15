@@ -106,7 +106,7 @@ export const AddSellerModal: React.FC<AddSellerModalProps> = ({
       onSuccess(created);
       onClose();
     } catch (e: any) {
-      setServerError(e.message || 'Failed to create seller');
+      setServerError(e.message);
     } finally {
       setLoading(false);
     }

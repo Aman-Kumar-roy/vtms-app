@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, StyleProp, ViewStyle, Animated, Easing } from 'react-native';
 import { NavigationProgressBar } from './NavigationProgressBar';
+import { useTheme } from '../context/ThemeContext';
 
 export type ScreenAnimationDirection = 'up' | 'down' | 'left' | 'right' | 'fade' | 'none';
 
@@ -19,6 +20,7 @@ export const AnimatedScreenWrapper: React.FC<AnimatedScreenWrapperProps> = ({
   duration = 240,
   showTopLoader = true,
 }) => {
+  const { colors, theme } = useTheme();
   const animTranslate = useRef(new Animated.Value(0)).current;
   const animOpacity = useRef(new Animated.Value(direction === 'none' ? 1 : 0.25)).current;
 
@@ -60,8 +62,10 @@ export const AnimatedScreenWrapper: React.FC<AnimatedScreenWrapperProps> = ({
     ? [{ translateX: animTranslate }]
     : [{ translateY: animTranslate }];
 
+  const bg = colors?.bgPrimary || (theme === 'dark' ? '#080d1a' : '#f8fafc');
+
   return (
-    <View style={styles.outerContainer}>
+    <View style={[styles.outerContainer, { backgroundColor: bg }]}>
       {showTopLoader && (
         <NavigationProgressBar
           direction={direction === 'left' ? 'right-to-left' : 'left-to-right'}
@@ -71,6 +75,7 @@ export const AnimatedScreenWrapper: React.FC<AnimatedScreenWrapperProps> = ({
         style={[
           styles.container,
           {
+            backgroundColor: bg,
             opacity: animOpacity,
             transform: transformStyle,
           },
@@ -87,10 +92,8 @@ const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
     position: 'relative',
-    backgroundColor: '#080d1a',
   },
   container: {
     flex: 1,
-    backgroundColor: '#080d1a',
   },
 });

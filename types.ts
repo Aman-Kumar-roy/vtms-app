@@ -1,8 +1,10 @@
 /**
  * VTMS - Mobile App TypeScript API Interfaces
  * Strictly enforces project constraints:
- * - Tank sizes allowed: 500, 1000, 2000 ONLY
+ * - Tank sizes allowed: 500, 1000 ONLY
+ * - Flexible tankItems: [{ size: 500 | 1000, quantity, layers: 3-6, foam?: 'none' | 'single' | 'double' }]
  * - Dynamic totals computed on server (totalDeliveries, totalPaid, totalDues)
+ * - Back dues tracking (previousDues, currentDues)
  */
 
 // 1. User & Auth
@@ -50,9 +52,10 @@ export interface Seller {
   totalDeliveries?: number;
   totalPaid?: number;
   totalDues?: number;
+  advanceCredit?: number;
+  isOverpaid?: boolean;
   tank500?: number;
   tank1000?: number;
-  tank2000?: number;
 }
 
 export interface CreateSellerRequest {
@@ -86,7 +89,6 @@ export interface SellerListResponse {
     totalDues: number;
     tank500: number;
     tank1000: number;
-    tank2000: number;
   };
 }
 
@@ -100,7 +102,6 @@ export interface SellerDetailResponse {
       totalDues: number;
       tank500: number;
       tank1000: number;
-      tank2000: number;
     };
     transactions: Transaction[];
     pagination: {
@@ -125,10 +126,25 @@ export interface Transaction {
   note?: string | null;
   tank500: number;
   tank1000: number;
-  tank2000: number;
+  tankItems?: Array<{
+    size: 500 | 1000;
+    quantity: number;
+    layers: number;
+    foam?: 'none' | 'single' | 'double';
+  }>;
+  tank500_layers?: number | null;
+  tank1000_layers?: number | null;
+  tank1000_foam?: 'none' | 'single' | 'double';
   paymentMode?: string | null; // UPI, Cash, Cheque, Bank Transfer, RTGS/NEFT
   paidAmount?: number;
   remainingDue?: number;
+  advanceCredit?: number;
+  previousDues?: number;
+  currentDues?: number;
+  isPreviousAdvance?: boolean;
+  isCurrentAdvance?: boolean;
+  previousDuesFormatted?: string;
+  currentDuesFormatted?: string;
   linkedPayments?: Array<{
     id?: string;
     _id?: string;
@@ -158,10 +174,18 @@ export interface CreateTransactionRequest {
   amount: number;
   date?: string;
   note?: string;
-  // Strictly tank sizes: 500, 1000, 2000
+  tankItems?: Array<{
+    size: 500 | 1000;
+    quantity: number;
+    layers: number;
+    foam?: 'none' | 'single' | 'double';
+  }>;
+  // Strictly tank sizes: 500, 1000
   tank500?: number;
   tank1000?: number;
-  tank2000?: number;
+  tank500_layers?: number;
+  tank1000_layers?: number;
+  tank1000_foam?: 'none' | 'single' | 'double';
   paymentMode?: string;
   parentId?: string | null;
 }
@@ -170,9 +194,17 @@ export interface UpdateTransactionRequest {
   amount?: number;
   date?: string;
   note?: string;
+  tankItems?: Array<{
+    size: 500 | 1000;
+    quantity: number;
+    layers: number;
+    foam?: 'none' | 'single' | 'double';
+  }>;
   tank500?: number;
   tank1000?: number;
-  tank2000?: number;
+  tank500_layers?: number;
+  tank1000_layers?: number;
+  tank1000_foam?: 'none' | 'single' | 'double';
   paymentMode?: string;
 }
 
@@ -198,7 +230,6 @@ export interface SummaryReportResponse {
     tankDistribution: {
       tank500: number;
       tank1000: number;
-      tank2000: number;
     };
     topVendors: Array<{
       name: string;
@@ -213,7 +244,6 @@ export interface TankSummaryReportResponse {
   data: {
     tank500: number;
     tank1000: number;
-    tank2000: number;
     totalTanks: number;
   };
 }

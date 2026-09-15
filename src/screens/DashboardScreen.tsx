@@ -35,7 +35,7 @@ interface DashboardScreenProps {
 }
 
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, isEmbedded = false, isActive = true }) => {
-  const { colors } = useTheme();
+  const { colors, theme } = useTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // In-context modals & notifications
@@ -81,7 +81,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, is
   };
 
   const fmtCurrency = (val: number) => {
-    return '₹' + Number(val || 0).toLocaleString('en-IN', {
+    return '₹' + Math.abs(Number(val || 0)).toLocaleString('en-IN', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
@@ -95,7 +95,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, is
   const leadingVendors = (report?.topVendors || []).slice(0, 5);
 
   return (
-    <AnimatedScreenWrapper style={[styles.container, { backgroundColor: colors.bgPrimary }, isEmbedded && { paddingHorizontal: 0, paddingTop: 0 }]}>
+    <AnimatedScreenWrapper
+      direction={isEmbedded ? 'none' : 'up'}
+      showTopLoader={!isEmbedded}
+      style={[styles.container, { backgroundColor: colors.bgPrimary }, isEmbedded && { paddingHorizontal: 0, paddingTop: 0 }]}
+    >
       {!isEmbedded && (
         <>
           <NavbarHeader
@@ -131,214 +135,214 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, is
               </View>
             )}
 
-        {/* Executive Admin Hub Card — Financial Summary */}
-        <View style={[styles.adminHubCard, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
-          <View style={styles.hubHeaderRow}>
-            <View style={styles.hubBrandGroup}>
-              <View style={styles.hubLogoContainer}>
-                <Image
-                  source={require('../../assets/logo.jpg')}
-                  style={styles.hubLogoImg}
-                  resizeMode="cover"
-                />
-              </View>
-              <View style={styles.hubBrandTextWrap}>
-                <Text style={[styles.hubBrandName, { color: colors.textPrimary }]} numberOfLines={1}>
-                  Vasudha Polymer
-                </Text>
-                <Text style={[styles.hubSubTitle, { color: colors.textMuted }]} numberOfLines={1}>
-                  Admin Hub Overview
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.activeSellersBadge}>
-              <View style={styles.activeDot} />
-              <Text style={styles.activeSellersText}>
-                {report?.totalActiveVendors ?? sellers.length} Active Sellers
-              </Text>
-            </View>
-          </View>
-
-          {/* Minimal, High-Hierarchy Financial Summary */}
-          <View style={[styles.summaryContainer, { backgroundColor: 'rgba(0, 0, 0, 0.25)' }]}>
-            {/* Hero Billed Sales */}
-            <View style={styles.heroSummaryBlock}>
-              <Text style={[styles.heroSummaryLabel, { color: colors.textMuted }]}>TOTAL BILLED</Text>
-              <Text style={[styles.heroSummaryValue, { color: colors.accentHover }]}>
-                {fmtCurrency(report?.totalBilledSales || 0)}
-              </Text>
-            </View>
-
-            <View style={[styles.summaryDividerHorizontal, { backgroundColor: colors.borderSubtle }]} />
-
-            {/* Supporting Financial Values */}
-            <View style={styles.supportingSummaryRow}>
-              {/* Total Paid */}
-              <View style={styles.supportingSummaryCol}>
-                <Text style={[styles.supportingSummaryLabel, { color: colors.textMuted }]}>TOTAL PAID</Text>
-                <Text style={[styles.supportingSummaryValue, { color: '#10b981' }]}>
-                  {fmtCurrency(report?.totalClearedPayments || 0)}
-                </Text>
-              </View>
-
-              <View style={[styles.summaryDividerVertical, { backgroundColor: colors.borderSubtle }]} />
-
-              {/* Total Due */}
-              <View style={styles.supportingSummaryCol}>
-                <Text style={[styles.supportingSummaryLabel, { color: colors.textMuted }]}>TOTAL DUE</Text>
-                <Text
-                  style={[
-                    styles.supportingSummaryValue,
-                    {
-                      color:
-                        (report?.totalPendingReceivables || 0) > 0
-                          ? '#ef4444'
-                          : '#10b981',
-                    },
-                  ]}
-                >
-                  {fmtCurrency(report?.totalPendingReceivables || 0)}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Real-Time Collection Efficiency Card */}
-        <View style={[styles.efficiencyCard, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
-          <View style={styles.effHeaderRow}>
-            <View style={styles.effTitleGroup}>
-              <View style={styles.effIconWrap}>
-                <Ionicons name="trending-up" size={16} color="#10b981" />
-              </View>
-              <View>
-                <Text style={[styles.effCardTitle, { color: colors.textPrimary }]}>Collection Efficiency</Text>
-                <Text style={[styles.effCardSub, { color: colors.textMuted }]}>Real-time payment recovery</Text>
-              </View>
-            </View>
-            <View style={[styles.effPercentBadge, { backgroundColor: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.3)' }]}>
-              <Text style={styles.effPercentText}>{collectionEfficiency}%</Text>
-            </View>
-          </View>
-
-          {/* Visual Progress Bar / Graph */}
-          <View style={styles.effProgressTrack}>
-            <View
-              style={[
-                styles.effProgressBar,
-                {
-                  width: `${Math.min(100, Math.max(0, Number(collectionEfficiency)))}%`,
-                  backgroundColor: Number(collectionEfficiency) >= 75 ? '#10b981' : Number(collectionEfficiency) >= 40 ? '#f59e0b' : '#ef4444',
-                },
-              ]}
-            />
-          </View>
-
-          {/* Recovery Summary Metrics Footer */}
-          <View style={styles.effFooterRow}>
-            <Text style={[styles.effFooterText, { color: colors.textMuted }]}>
-              Cleared: <Text style={{ color: '#10b981', fontWeight: '700' }}>{fmtCurrency(report?.totalClearedPayments || 0)}</Text>
-            </Text>
-            <Text style={[styles.effFooterText, { color: colors.textMuted }]}>
-              Billed: <Text style={{ color: colors.accentHover, fontWeight: '700' }}>{fmtCurrency(report?.totalBilledSales || 0)}</Text>
-            </Text>
-          </View>
-        </View>
-
-        {/* Leading Vendors Section — Top 5 Only (Current Month) */}
-        <View style={styles.sectionHeader}>
-          <View>
-            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Leading Vendors</Text>
-            <Text style={[styles.sectionSub, { color: colors.textMuted }]}>Top 5 Current Month Deliveries</Text>
-          </View>
-          <TouchableOpacity
-            onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Reports' }] })}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.sectionLink, { color: colors.accentHover }]}>View All →</Text>
-          </TouchableOpacity>
-        </View>
-
-        {leadingVendors.length > 0 ? (
-          <View style={[styles.leadingVendorsCard, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
-            {leadingVendors.map((vendor: any, idx: number) => {
-              const targetSellerId =
-                vendor.sellerId ||
-                sellers.find(
-                  (s) => s.name && vendor.name && s.name.trim().toLowerCase() === vendor.name.trim().toLowerCase()
-                )?._id;
-
-              return (
-                <TouchableOpacity
-                  key={vendor.sellerId || idx}
-                  style={[
-                    styles.leadingVendorRow,
-                    idx < leadingVendors.length - 1 && { borderBottomColor: colors.borderSubtle, borderBottomWidth: 1 },
-                  ]}
-                  onPress={() => {
-                    if (targetSellerId) {
-                      navigation.navigate('SellerDetail', {
-                        sellerId: targetSellerId,
-                        sellerName: vendor.name,
-                      });
-                    }
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.leadingVendorRank}>
-                    <Text style={styles.rankBadgeText}>#{idx + 1}</Text>
+            {/* ── Native Admin Hub Overview Card ─────────────────────────── */}
+            <View style={[styles.adminHubCard, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
+              {/* Top Brand & Sellers Badge Row */}
+              <View style={styles.hubHeaderRow}>
+                <View style={styles.hubBrandGroup}>
+                  <View style={[styles.hubLogoContainer, { backgroundColor: theme === 'dark' ? '#070b14' : '#ffffff', borderColor: colors.borderSubtle }]}>
+                    <Image
+                      source={require('../../assets/logo.jpg')}
+                      style={styles.hubLogoImg}
+                      resizeMode="cover"
+                    />
                   </View>
-                  <View style={styles.leadingVendorInfo}>
-                    <Text style={[styles.leadingVendorName, { color: colors.textPrimary }]} numberOfLines={1}>
-                      {vendor.name}
+                  <View style={styles.hubBrandTextWrap}>
+                    <Text style={[styles.hubBrandName, { color: colors.textPrimary }]} numberOfLines={1}>
+                      Vasudha Polymer
+                    </Text>
+                    <Text style={[styles.hubSubTitle, { color: colors.textMuted }]} numberOfLines={1}>
+                      Financial & Dispatch Overview
                     </Text>
                   </View>
-                  <Text style={[styles.leadingVendorAmount, { color: colors.accentHover }]}>
-                    {fmtCurrency(vendor.totalDeliveries)}
+                </View>
+
+                <View style={[styles.activeSellersBadge, { backgroundColor: theme === 'dark' ? 'rgba(56, 189, 248, 0.12)' : 'rgba(2, 132, 199, 0.08)', borderColor: theme === 'dark' ? 'rgba(56, 189, 248, 0.3)' : 'rgba(2, 132, 199, 0.2)' }]}>
+                  <View style={[styles.activeDot, { backgroundColor: theme === 'dark' ? '#38bdf8' : '#0284c7' }]} />
+                  <Text style={[styles.activeSellersText, { color: theme === 'dark' ? '#38bdf8' : '#0284c7' }]}>
+                    {report?.totalActiveVendors ?? sellers.length} Sellers
                   </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        ) : (
-          <View style={[styles.emptyBox, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
-            <Text style={[styles.emptyText, { color: colors.textMuted }]}>No delivery orders recorded this month.</Text>
-          </View>
-        )}
+                </View>
+              </View>
 
-        {/* Tank Distribution (Strict 500L, 1000L, 2000L) */}
-        {report?.tankDistribution && (
-          <View style={{ marginTop: 16 }}>
-            <TankSummaryCard distribution={report.tankDistribution} />
-          </View>
-        )}
+              {/* Minimal, High-Hierarchy Financial Summary */}
+              <View style={[styles.summaryContainer, { backgroundColor: theme === 'dark' ? 'rgba(0, 0, 0, 0.25)' : colors.bgPrimary, borderColor: colors.borderSubtle }]}>
+                {/* Hero Billed Sales */}
+                <View style={styles.heroSummaryBlock}>
+                  <Text style={[styles.heroSummaryLabel, { color: colors.textMuted }]}>TOTAL BILLED</Text>
+                  <Text style={[styles.heroSummaryValue, { color: theme === 'dark' ? colors.accentHover : colors.accent }]}>
+                    {fmtCurrency(report?.totalBilledSales || 0)}
+                  </Text>
+                </View>
 
-        {/* Recent Vendors Preview */}
-        <View style={[styles.sectionHeader, { marginTop: 16 }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Recent Vendors</Text>
-          <TouchableOpacity
-            onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Sellers' }] })}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.sectionLink, { color: colors.accentHover }]}>View All →</Text>
-          </TouchableOpacity>
-        </View>
+                <View style={[styles.summaryDividerHorizontal, { backgroundColor: colors.borderSubtle }]} />
 
-        {sellers.map((s) => (
-          <SellerCard
-            key={s._id || s.id}
-            seller={s}
-            onPress={() =>
-              navigation.navigate('SellerDetail', {
-                sellerId: s._id || s.id,
-                sellerName: s.name,
-              })
-            }
-          />
-        ))}
+                {/* Supporting Financial Values */}
+                <View style={styles.supportingSummaryRow}>
+                  {/* Total Paid */}
+                  <View style={styles.supportingSummaryCol}>
+                    <Text style={[styles.supportingSummaryLabel, { color: colors.textMuted }]}>TOTAL PAID</Text>
+                    <Text style={[styles.supportingSummaryValue, { color: '#10b981' }]}>
+                      {fmtCurrency(report?.totalClearedPayments || 0)}
+                    </Text>
+                  </View>
 
-        <View style={{ height: 40 }} />
+                  <View style={[styles.summaryDividerVertical, { backgroundColor: colors.borderSubtle }]} />
+
+                  {/* Total Due */}
+                  <View style={styles.supportingSummaryCol}>
+                    <Text style={[styles.supportingSummaryLabel, { color: colors.textMuted }]}>TOTAL DUE</Text>
+                    <Text
+                      style={[
+                        styles.supportingSummaryValue,
+                        {
+                          color:
+                            (report?.totalPendingReceivables || 0) > 0
+                              ? '#ef4444'
+                              : '#10b981',
+                        },
+                      ]}
+                    >
+                      {fmtCurrency(report?.totalPendingReceivables || 0)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Tank Deliveries Summary Card (Strict 500L, 1000L) */}
+            <TankSummaryCard
+              distribution={report?.tankDistribution || { tank500: 0, tank1000: 0 }}
+              title="Tank Delivery Records"
+            />
+
+            {/* Real-Time Collection Efficiency Card */}
+            <View style={[styles.efficiencyCard, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
+              <View style={styles.effHeaderRow}>
+                <View style={styles.effTitleGroup}>
+                  <View style={styles.effIconWrap}>
+                    <Ionicons name="trending-up" size={16} color="#10b981" />
+                  </View>
+                  <View>
+                    <Text style={[styles.effCardTitle, { color: colors.textPrimary }]}>Collection Efficiency</Text>
+                    <Text style={[styles.effCardSub, { color: colors.textMuted }]}>Real-time payment recovery</Text>
+                  </View>
+                </View>
+                <View style={[styles.effPercentBadge, { backgroundColor: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.3)' }]}>
+                  <Text style={styles.effPercentText}>{collectionEfficiency}%</Text>
+                </View>
+              </View>
+
+              {/* Visual Progress Bar / Graph */}
+              <View style={[styles.effProgressTrack, { backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)' }]}>
+                <View
+                  style={[
+                    styles.effProgressBar,
+                    {
+                      width: `${Math.min(100, Math.max(0, Number(collectionEfficiency)))}%`,
+                      backgroundColor: Number(collectionEfficiency) >= 75 ? '#10b981' : Number(collectionEfficiency) >= 40 ? '#f59e0b' : '#ef4444',
+                    },
+                  ]}
+                />
+              </View>
+
+              {/* Recovery Summary Metrics Footer */}
+              <View style={styles.effFooterRow}>
+                <Text style={[styles.effFooterText, { color: colors.textMuted }]}>
+                  Cleared: <Text style={{ color: '#10b981', fontWeight: '700' }}>{fmtCurrency(report?.totalClearedPayments || 0)}</Text>
+                </Text>
+                <Text style={[styles.effFooterText, { color: colors.textMuted }]}>
+                  Billed: <Text style={{ color: theme === 'dark' ? colors.accentHover : colors.accent, fontWeight: '700' }}>{fmtCurrency(report?.totalBilledSales || 0)}</Text>
+                </Text>
+              </View>
+            </View>
+
+            {/* Leading Vendors Section — Top 5 Only (Current Month) */}
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Leading Vendors</Text>
+                <Text style={[styles.sectionSub, { color: colors.textMuted }]}>Top 5 Current Month Deliveries</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Reports' }] })}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.sectionLink, { color: colors.accentHover }]}>View All →</Text>
+              </TouchableOpacity>
+            </View>
+
+            {leadingVendors.length > 0 ? (
+              <View style={[styles.leadingVendorsCard, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
+                {leadingVendors.map((vendor: any, idx: number) => {
+                  const targetSellerId =
+                    vendor.sellerId ||
+                    sellers.find(
+                      (s) => s.name && vendor.name && s.name.trim().toLowerCase() === vendor.name.trim().toLowerCase()
+                    )?._id;
+
+                  return (
+                    <TouchableOpacity
+                      key={vendor.sellerId || idx}
+                      style={[
+                        styles.leadingVendorRow,
+                        idx < leadingVendors.length - 1 && { borderBottomColor: colors.borderSubtle, borderBottomWidth: 1 },
+                      ]}
+                      onPress={() => {
+                        if (targetSellerId) {
+                          navigation.navigate('SellerDetail', {
+                            sellerId: targetSellerId,
+                            sellerName: vendor.name,
+                          });
+                        }
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.leadingVendorRank, { backgroundColor: theme === 'dark' ? 'rgba(56, 189, 248, 0.12)' : 'rgba(2, 132, 199, 0.08)' }]}>
+                        <Text style={[styles.rankBadgeText, { color: colors.accent }]}>#{idx + 1}</Text>
+                      </View>
+                      <View style={styles.leadingVendorInfo}>
+                        <Text style={[styles.leadingVendorName, { color: colors.textPrimary }]} numberOfLines={1}>
+                          {vendor.name}
+                        </Text>
+                      </View>
+                      <Text style={[styles.leadingVendorAmount, { color: theme === 'dark' ? colors.accentHover : colors.accent }]}>
+                        {fmtCurrency(vendor.totalDeliveries)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={[styles.emptyBox, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>No delivery orders recorded this month.</Text>
+              </View>
+            )}
+
+            {/* Recent Vendors Preview */}
+            <View style={[styles.sectionHeader, { marginTop: 16 }]}>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Recent Vendors</Text>
+              <TouchableOpacity
+                onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Sellers' }] })}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.sectionLink, { color: colors.accentHover }]}>View All →</Text>
+              </TouchableOpacity>
+            </View>
+
+            {sellers.map((s) => (
+              <SellerCard
+                key={s._id || s.id}
+                seller={s}
+                onPress={() =>
+                  navigation.navigate('SellerDetail', {
+                    sellerId: s._id || s.id,
+                    sellerName: s.name,
+                  })
+                }
+              />
+            ))}
+
+            <View style={{ height: 40 }} />
           </>
         )}
       </ScrollView>
@@ -348,7 +352,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, is
         visible={addSellerVisible}
         onClose={() => setAddSellerVisible(false)}
         onSuccess={async (_created) => {
-          setToastMsg('Seller created successfully.');
+          setToastMsg((_created as any)?.serverMessage || 'Seller created successfully.');
           await invalidateDashboard();
           refetch();
         }}
@@ -365,6 +369,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, is
         sellers={sellers}
         initialType={txModalType}
         onSuccess={async (_tx) => {
+          const msg = (_tx as any)?.serverMessage || 'Transaction created successfully.';
+          setToastMsg(msg);
           await invalidateTransactions(selectedSeller?._id);
           refetch();
         }}
@@ -510,6 +516,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 14,
+    borderWidth: 1,
     marginBottom: 4,
   },
   heroSummaryBlock: {
@@ -526,6 +533,7 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '900',
     letterSpacing: 0.3,
+    fontVariant: ['tabular-nums'],
   },
   summaryDividerHorizontal: {
     height: 1,
@@ -550,6 +558,7 @@ const styles = StyleSheet.create({
   supportingSummaryValue: {
     fontSize: 16,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   summaryDividerVertical: {
     width: 1,
@@ -596,6 +605,7 @@ const styles = StyleSheet.create({
   leadingVendorAmount: {
     fontSize: 13,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   emptyBox: {
     padding: 20,

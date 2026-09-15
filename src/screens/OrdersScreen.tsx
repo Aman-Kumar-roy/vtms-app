@@ -18,6 +18,8 @@ export const OrdersScreen = ({ navigation, isEmbedded = false, isActive = true }
 
   return (
     <AnimatedScreenWrapper
+      direction={isEmbedded ? 'none' : 'up'}
+      showTopLoader={!isEmbedded}
       style={[
         styles.container,
         { backgroundColor: colors.bgPrimary },
