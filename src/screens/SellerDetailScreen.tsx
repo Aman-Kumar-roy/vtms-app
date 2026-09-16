@@ -371,7 +371,7 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
                     {tx.tankItems && tx.tankItems.length > 0 ? (
                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: 3 }}>
                         {tx.tankItems.filter((t) => Number(t.quantity) > 0).map((t, idx) => {
-                          const foamStr = t.size === 1000 && t.foam && t.foam !== 'none' ? `, ${t.foam}` : '';
+                          const foamStr = t.foam && t.foam !== 'none' ? `, ${t.foam}` : '';
                           const is500 = t.size === 500;
                           return (
                             <View

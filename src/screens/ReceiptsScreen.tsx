@@ -391,7 +391,7 @@ export const ReceiptsScreen = ({ navigation, isEmbedded = false, isActive = true
                 item.tankItems
                   .filter((t) => Number(t.quantity) > 0)
                   .forEach((t) => {
-                    const foamStr = t.size === 1000 && t.foam && t.foam !== 'none' ? `, ${t.foam} foam` : '';
+                    const foamStr = t.foam && t.foam !== 'none' ? `, ${t.foam} foam` : '';
                     tankLines.push(`${t.quantity} × ${t.size}L (${t.layers || 3}L${foamStr})`);
                   });
               } else {

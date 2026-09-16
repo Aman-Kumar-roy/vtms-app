@@ -133,6 +133,7 @@ export interface Transaction {
     foam?: 'none' | 'single' | 'double';
   }>;
   tank500_layers?: number | null;
+  tank500_foam?: 'none' | 'single' | 'double';
   tank1000_layers?: number | null;
   tank1000_foam?: 'none' | 'single' | 'double';
   paymentMode?: string | null; // UPI, Cash, Cheque, Bank Transfer, RTGS/NEFT
@@ -184,6 +185,7 @@ export interface CreateTransactionRequest {
   tank500?: number;
   tank1000?: number;
   tank500_layers?: number;
+  tank500_foam?: 'none' | 'single' | 'double';
   tank1000_layers?: number;
   tank1000_foam?: 'none' | 'single' | 'double';
   paymentMode?: string;
@@ -203,6 +205,7 @@ export interface UpdateTransactionRequest {
   tank500?: number;
   tank1000?: number;
   tank500_layers?: number;
+  tank500_foam?: 'none' | 'single' | 'double';
   tank1000_layers?: number;
   tank1000_foam?: 'none' | 'single' | 'double';
   paymentMode?: string;

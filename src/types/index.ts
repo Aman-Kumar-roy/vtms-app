@@ -57,6 +57,7 @@ export interface Transaction {
   tank500: number;
   tank1000: number;
   tank500_layers?: number | null;
+  tank500_foam?: string | null;
   tank1000_layers?: number | null;
   tank1000_foam?: string | null;
   tankItems?: Array<{
@@ -139,6 +140,7 @@ export interface ServerReceipt {
     tank500: number;
     tank1000: number;
     tank500_layers?: number | null;
+    tank500_foam?: string | null;
     tank1000_layers?: number | null;
     tank1000_foam?: string | null;
     tankItems?: Array<{

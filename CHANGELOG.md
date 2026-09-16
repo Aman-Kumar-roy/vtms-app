@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v1.3.0] - 2026-09-16
 
 ### Added & Enhanced
+- **500L & 1000L Foam Parity**:
+  - Full support for `none`, `single`, and `double` foam options across both 500L and 1000L tanks in line item forms, creation modals, receipt views, and detail screens.
+- **Responsive Variant Button Layout**:
+  - Enhanced `TankSelector` header layout with flex wrapping, preventing the "Add Variant" button from overflowing card boundaries on all screen widths.
+- **1:1 Pixel-Parity Shimmer Skeleton Loading**:
+  - Rebuilt shimmer skeletons in `Shimmer.tsx` to exactly match live cards in size, padding, border radii, and internal structure for Dashboard, Tank Delivery Records (`TankSummaryCard`), Collection Efficiency, Vendors, Transactions, Receipts, and Reports.
 - **Authoritative Balance & Advance Dues Tracking**:
   - Full support for advance balance tracking with positive green styling (`+ ₹ XX,XXX.00 (Advance)`).
   - 3-column Financial Balance card across transaction modals, receipt preview, and server-generated PDF vouchers.

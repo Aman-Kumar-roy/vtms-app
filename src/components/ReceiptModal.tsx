@@ -170,7 +170,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             size: Number(it.size) === 1000 ? 1000 : 500,
             quantity: qty,
             layers: it.layers ? Number(it.layers) : null,
-            foam: it.size === 1000 ? (it.foam || 'none') : undefined,
+            foam: it.foam && it.foam !== 'none' ? it.foam : undefined,
           });
         }
       });
@@ -179,6 +179,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       const t1000 = Number(transaction?.tank1000 ?? receipt?.transaction?.tank1000 ?? 0);
       const t500Layers = transaction?.tank500_layers ?? receipt?.transaction?.tank500_layers;
       const t1000Layers = transaction?.tank1000_layers ?? receipt?.transaction?.tank1000_layers;
+      const t500Foam = (transaction as any)?.tank500_foam ?? (receipt?.transaction as any)?.tank500_foam;
       const t1000Foam = transaction?.tank1000_foam ?? receipt?.transaction?.tank1000_foam;
 
       if (t500 > 0) {
@@ -186,6 +187,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           size: 500,
           quantity: t500,
           layers: t500Layers ? Number(t500Layers) : null,
+          foam: t500Foam || 'none',
         });
       }
       if (t1000 > 0) {
@@ -435,7 +437,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
                       {/* Item Rows */}
                       {normalizedItems.map((item, idx) => {
-                        const foamStr = item.size === 1000 && item.foam && item.foam !== 'none'
+                        const foamStr = item.foam && item.foam !== 'none'
                           ? ` • ${item.foam.charAt(0).toUpperCase() + item.foam.slice(1)} Foam`
                           : '';
                         return (

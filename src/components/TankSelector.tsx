@@ -53,12 +53,7 @@ export const TankSelector: React.FC<TankSelectorProps> = ({
       onChangeItems(
         items.map((it) => {
           if (it.id !== id) return it;
-          const updated = { ...it, ...updates };
-          // If capacity is 500L, foam must strictly be 'none'
-          if (updated.size === 500) {
-            updated.foam = 'none';
-          }
-          return updated;
+          return { ...it, ...updates };
         })
       );
     };
@@ -67,7 +62,7 @@ export const TankSelector: React.FC<TankSelectorProps> = ({
       <View style={[styles.container, { backgroundColor: colors.bgSecondary, borderColor: colors.borderSubtle }]}>
         {/* Header */}
         <View style={styles.headerRow}>
-          <View>
+          <View style={styles.headerLeft}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Ionicons name="cube-outline" size={14} color="#38bdf8" style={{ marginRight: 5 }} />
               <Text style={[styles.sectionHeader, { color: colors.textPrimary }]}>
@@ -75,7 +70,7 @@ export const TankSelector: React.FC<TankSelectorProps> = ({
               </Text>
             </View>
             <Text style={[styles.sectionSub, { color: colors.textMuted }]}>
-              Strict sizes: 500L & 1,000L (Layers 3–6, Foam on 1,000L)
+              Strict sizes: 500L & 1,000L (Layers 3–6, Foam: None, Single, Double)
             </Text>
           </View>
 
@@ -97,8 +92,7 @@ export const TankSelector: React.FC<TankSelectorProps> = ({
 
         {/* Variants List */}
         {items.map((item, idx) => {
-          const is1000 = item.size === 1000;
-          const foamLabel = is1000 && item.foam !== 'none' ? ` • ${item.foam} foam` : '';
+          const foamLabel = item.foam && item.foam !== 'none' ? ` • ${item.foam} foam` : '';
 
           return (
             <View
@@ -147,7 +141,7 @@ export const TankSelector: React.FC<TankSelectorProps> = ({
                         borderColor: item.size === 500 ? colors.accent : colors.borderSubtle,
                       },
                     ]}
-                    onPress={() => handleUpdateItem(item.id, { size: 500, foam: 'none' })}
+                    onPress={() => handleUpdateItem(item.id, { size: 500 })}
                     activeOpacity={0.8}
                   >
                     <Ionicons
@@ -244,48 +238,46 @@ export const TankSelector: React.FC<TankSelectorProps> = ({
                 </View>
               </View>
 
-              {/* 3. Foam Selection (1000L Only) */}
-              {is1000 ? (
-                <View style={styles.fieldSection}>
-                  <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>
-                    FOAM TYPE: <Text style={{ color: '#10b981', fontWeight: '800' }}>{item.foam.toUpperCase()}</Text>
-                  </Text>
-                  <View style={styles.pillsRow}>
-                    {(['none', 'single', 'double'] as const).map((f) => (
-                      <TouchableOpacity
-                        key={f}
+              {/* 3. Foam Selection (500L and 1000L) */}
+              <View style={styles.fieldSection}>
+                <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>
+                  FOAM TYPE: <Text style={{ color: '#10b981', fontWeight: '800' }}>{(item.foam || 'none').toUpperCase()}</Text>
+                </Text>
+                <View style={styles.pillsRow}>
+                  {(['none', 'single', 'double'] as const).map((f) => (
+                    <TouchableOpacity
+                      key={f}
+                      style={[
+                        styles.foamPillBtn,
+                        {
+                          backgroundColor: item.foam === f
+                            ? (theme === 'dark' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(5, 150, 105, 0.12)')
+                            : (theme === 'dark' ? 'rgba(15, 23, 42, 0.6)' : '#ffffff'),
+                          borderColor: item.foam === f
+                            ? (theme === 'dark' ? '#10b981' : colors.success)
+                            : colors.borderSubtle,
+                        },
+                      ]}
+                      onPress={() => handleUpdateItem(item.id, { foam: f })}
+                      activeOpacity={0.8}
+                    >
+                      <Text
                         style={[
-                          styles.foamPillBtn,
+                          styles.foamPillBtnText,
                           {
-                            backgroundColor: item.foam === f
-                              ? (theme === 'dark' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(5, 150, 105, 0.12)')
-                              : (theme === 'dark' ? 'rgba(15, 23, 42, 0.6)' : '#ffffff'),
-                            borderColor: item.foam === f
+                            color: item.foam === f
                               ? (theme === 'dark' ? '#10b981' : colors.success)
-                              : colors.borderSubtle,
+                              : colors.textPrimary,
+                            fontWeight: item.foam === f ? '800' : '700',
                           },
                         ]}
-                        onPress={() => handleUpdateItem(item.id, { foam: f })}
-                        activeOpacity={0.8}
                       >
-                        <Text
-                          style={[
-                            styles.foamPillBtnText,
-                            {
-                              color: item.foam === f
-                                ? (theme === 'dark' ? '#10b981' : colors.success)
-                                : colors.textPrimary,
-                              fontWeight: item.foam === f ? '800' : '700',
-                            },
-                          ]}
-                        >
-                          {f === 'none' ? 'None' : f === 'single' ? 'Single' : 'Double'}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+                        {f === 'none' ? 'None' : f === 'single' ? 'Single' : 'Double'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
-              ) : null}
+              </View>
 
               {/* 4. Quantity Stepper & Input */}
               <View style={styles.fieldSection}>
@@ -421,7 +413,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 12,
+  },
+  headerLeft: {
+    flex: 1,
+    minWidth: 150,
+    marginRight: 4,
   },
   sectionHeader: {
     fontSize: 11,
@@ -431,14 +430,17 @@ const styles = StyleSheet.create({
   sectionSub: {
     fontSize: 10,
     marginTop: 2,
+    lineHeight: 14,
   },
   addVariantBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
+    flexShrink: 0,
+    alignSelf: 'center',
   },
   addVariantBtnText: {
     fontSize: 11,

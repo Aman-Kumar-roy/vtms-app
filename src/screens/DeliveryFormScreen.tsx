@@ -77,7 +77,7 @@ export const DeliveryFormScreen = ({ route, navigation }: any) => {
   const itemizedSummary = tankLineItems
     .filter((t) => (t.quantity || 0) > 0)
     .map((t) => {
-      const foamStr = t.size === 1000 && t.foam !== 'none' ? `, ${t.foam} foam` : '';
+      const foamStr = t.foam && t.foam !== 'none' ? `, ${t.foam} foam` : '';
       return `${t.quantity}× ${t.size}L (${t.layers}L${foamStr})`;
     })
     .join(' • ');
@@ -121,7 +121,7 @@ export const DeliveryFormScreen = ({ route, navigation }: any) => {
           size: t.size,
           quantity: t.quantity,
           layers: t.layers,
-          foam: t.size === 1000 ? t.foam : 'none',
+          foam: t.foam || 'none',
         }));
 
       const tx = await createDeliveryApi({
