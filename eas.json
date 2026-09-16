@@ -10,7 +10,8 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.example.com/api/v1"
+        "EXPO_PUBLIC_API_URL": "https://web-production-0346c.up.railway.app/api/v1",
+        "EXPO_PUBLIC_COMPANY_NAME": "Vasudha Polymer"
       },
       "android": {
         "buildType": "apk"
@@ -19,7 +20,8 @@
     "production": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.example.com/api/v1"
+        "EXPO_PUBLIC_API_URL": "https://web-production-0346c.up.railway.app/api/v1",
+        "EXPO_PUBLIC_COMPANY_NAME": "Vasudha Polymer"
       },
       "android": {
         "buildType": "apk"
