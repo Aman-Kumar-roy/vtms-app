@@ -161,10 +161,7 @@ export const DeliveryFormScreen = ({ route, navigation }: any) => {
     <AnimatedScreenWrapper direction="none" showTopLoader={false} style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
       <NavbarHeader
         currentScreenTitle="Record Delivery"
-        onOpenDrawer={() => {
-          if (navigation.canGoBack()) navigation.goBack();
-          else navigation.navigate(selectedSeller ? 'SellerDetail' : 'Orders');
-        }}
+        isRootScreen={false}
         navigation={navigation}
       />
 

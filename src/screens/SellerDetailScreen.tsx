@@ -121,7 +121,7 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
 
       <NavbarHeader
         currentScreenTitle={sellerTitle}
-        onOpenDrawer={() => navigation.goBack()}
+        isRootScreen={false}
         navigation={navigation}
       />
 

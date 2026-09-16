@@ -211,6 +211,8 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({ route, n
 
   return (
     <AnimatedScreenWrapper
+      direction={isEmbedded ? 'none' : 'up'}
+      showTopLoader={!isEmbedded}
       style={[
         styles.container,
         { backgroundColor: colors.bgPrimary },

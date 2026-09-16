@@ -102,10 +102,10 @@ export const AddSellerScreen = ({ route, navigation }: any) => {
   };
 
   return (
-    <AnimatedScreenWrapper style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
+    <AnimatedScreenWrapper direction="none" showTopLoader={false} style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
       <NavbarHeader
         currentScreenTitle={isEditing ? 'Edit Vendor' : 'New Vendor'}
-        onOpenDrawer={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Sellers')}
+        isRootScreen={false}
         navigation={navigation}
       />
 

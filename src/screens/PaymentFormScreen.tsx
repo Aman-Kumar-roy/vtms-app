@@ -167,10 +167,7 @@ export const PaymentFormScreen = ({ route, navigation }: any) => {
     <AnimatedScreenWrapper direction="none" showTopLoader={false} style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
       <NavbarHeader
         currentScreenTitle="Record Payment"
-        onOpenDrawer={() => {
-          if (navigation.canGoBack()) navigation.goBack();
-          else navigation.navigate(selectedSeller ? 'SellerDetail' : 'Transactions');
-        }}
+        isRootScreen={false}
         navigation={navigation}
       />
 
