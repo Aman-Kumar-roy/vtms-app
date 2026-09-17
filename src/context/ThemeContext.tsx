@@ -129,6 +129,7 @@ export const lightColors: ThemeColorsType = {
 interface ThemeContextType {
   theme: ThemeMode;
   colors: ThemeColorsType;
+  isThemeReady: boolean;
   toggleTheme: () => void;
   setTheme: (mode: ThemeMode) => void;
 }
@@ -136,6 +137,7 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType>({
   theme: 'dark',
   colors: darkColors,
+  isThemeReady: false,
   toggleTheme: () => {},
   setTheme: () => {},
 });
@@ -144,8 +146,8 @@ const THEME_STORAGE_KEY = '@vtms_theme';
 const LEGACY_STORAGE_KEY = '@vasudha_theme';
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const systemScheme = useColorScheme();
   const [theme, setThemeState] = useState<ThemeMode>('dark');
+  const [isThemeReady, setIsThemeReady] = useState<boolean>(false);
 
   useEffect(() => {
     (async () => {
@@ -156,11 +158,13 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (stored === 'light' || stored === 'dark') {
           setThemeState(stored);
         } else {
-          // Default will strictly be dark as instructed
+          // Default to dark mode
           setThemeState('dark');
         }
       } catch {
         setThemeState('dark');
+      } finally {
+        setIsThemeReady(true);
       }
     })();
   }, []);
@@ -179,7 +183,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const colors = theme === 'dark' ? darkColors : lightColors;
 
   return (
-    <ThemeContext.Provider value={{ theme, colors, toggleTheme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, colors, isThemeReady, toggleTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

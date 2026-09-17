@@ -45,7 +45,7 @@ const OrdersTabScreen = (props: any) => (
 
 const AppNavigator = () => {
   const { user, isAuthReady } = useAuth();
-  const { colors, theme } = useTheme();
+  const { colors, theme, isThemeReady } = useTheme();
 
   const dynamicNavTheme = {
     ...(theme === 'dark' ? DarkTheme : DefaultTheme),
@@ -59,15 +59,15 @@ const AppNavigator = () => {
     },
   };
 
-  // Hide the native splash screen as soon as authentication bootstrap is completed and first screen is ready
+  // Hide the native splash screen as soon as authentication AND saved theme are fully loaded
   useEffect(() => {
-    if (isAuthReady) {
+    if (isAuthReady && isThemeReady) {
       SplashScreen.hideAsync().catch(() => {});
     }
-  }, [isAuthReady]);
+  }, [isAuthReady, isThemeReady]);
 
-  // While auth session is restoring, return null to hold the native splash screen smoothly
-  if (!isAuthReady) {
+  // While auth session or saved theme preference is restoring, hold the splash screen smoothly
+  if (!isAuthReady || !isThemeReady) {
     return null;
   }
 

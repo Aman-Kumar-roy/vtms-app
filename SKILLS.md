@@ -17,7 +17,7 @@
 
 ## Required Technical Stack & Skills
 
-1. **React Native (Expo SDK 50) + TypeScript**:
+1. **React Native (Expo SDK 57) + TypeScript**:
    - Functional components, custom hooks, React Context (`AuthContext`, `ThemeContext`).
    - Dynamic Light & Dark Mode theme switching via `ThemeContext` and theme tokens (`src/constants/theme.ts`).
 

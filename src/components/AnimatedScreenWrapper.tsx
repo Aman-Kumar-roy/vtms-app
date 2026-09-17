@@ -68,7 +68,8 @@ export const AnimatedScreenWrapper: React.FC<AnimatedScreenWrapperProps> = ({
     <View style={[styles.outerContainer, { backgroundColor: bg }]}>
       {showTopLoader && (
         <NavigationProgressBar
-          direction={direction === 'left' ? 'right-to-left' : 'left-to-right'}
+          direction="left-to-right"
+          position="top"
         />
       )}
       <Animated.View

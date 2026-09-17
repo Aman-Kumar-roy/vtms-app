@@ -9,6 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Colors } from '../constants/theme';
@@ -86,7 +87,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose }) 
                   <View style={styles.avatarRing}>
                     <Text style={styles.avatarText}>{initials}</Text>
                   </View>
-                  <View style={styles.activeDot} />
+                  <View style={[styles.activeDot, { borderColor: theme === 'dark' ? '#0f172a' : '#ffffff' }]} />
                 </View>
 
                 <Text style={[styles.userName, { color: colors.textPrimary }]} numberOfLines={1}>
@@ -103,25 +104,44 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose }) 
               </View>
 
               {/* Organization & System Info */}
-              <View style={[styles.infoContainer, { backgroundColor: colors.bgSecondary, borderColor: colors.borderSubtle }]}>
+              <View
+                style={[
+                  styles.infoContainer,
+                  {
+                    backgroundColor: theme === 'dark' ? colors.bgSecondary : 'rgba(15, 23, 42, 0.04)',
+                    borderColor: theme === 'dark' ? colors.borderSubtle : 'rgba(15, 23, 42, 0.08)',
+                  },
+                ]}
+              >
                 <View style={styles.infoRow}>
                   <Text style={[styles.infoLabel, { color: colors.textMuted }]}>Organization</Text>
                   <Text style={[styles.infoValue, { color: colors.textPrimary }]}>Vasudha Polymer</Text>
                 </View>
-                <View style={[styles.infoDivider, { backgroundColor: colors.borderSubtle }]} />
+                <View style={[styles.infoDivider, { backgroundColor: theme === 'dark' ? colors.borderSubtle : 'rgba(15, 23, 42, 0.08)' }]} />
                 <View style={styles.infoRow}>
                   <Text style={[styles.infoLabel, { color: colors.textMuted }]}>System Role</Text>
                   <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{userRole}</Text>
                 </View>
-                <View style={[styles.infoDivider, { backgroundColor: colors.borderSubtle }]} />
+                <View style={[styles.infoDivider, { backgroundColor: theme === 'dark' ? colors.borderSubtle : 'rgba(15, 23, 42, 0.08)' }]} />
                 <View style={styles.infoRow}>
                   <Text style={[styles.infoLabel, { color: colors.textMuted }]}>App Version</Text>
-                  <Text style={[styles.infoValue, { color: colors.textMuted }]}>v1.0.0 (Expo 50)</Text>
+                  <Text style={[styles.infoValue, { color: colors.textMuted }]}>
+                    v{Constants?.expoConfig?.version || '1.3.0'} (Expo SDK 57)
+                  </Text>
                 </View>
               </View>
 
               {/* Theme Preferences */}
-              <View style={[styles.infoContainer, { backgroundColor: colors.bgSecondary, borderColor: colors.borderSubtle, marginTop: 10 }]}>
+              <View
+                style={[
+                  styles.infoContainer,
+                  {
+                    backgroundColor: theme === 'dark' ? colors.bgSecondary : 'rgba(15, 23, 42, 0.04)',
+                    borderColor: theme === 'dark' ? colors.borderSubtle : 'rgba(15, 23, 42, 0.08)',
+                    marginTop: 10,
+                  },
+                ]}
+              >
                 <View style={[styles.infoRow, { alignItems: 'center', justifyContent: 'space-between' }]}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <Ionicons
@@ -138,7 +158,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose }) 
                       </Text>
                     </View>
                   </View>
-                  <View style={[styles.segmentedToggle, { backgroundColor: colors.bgPrimary, borderColor: colors.borderSubtle }]}>
+                  <View
+                    style={[
+                      styles.segmentedToggle,
+                      {
+                        backgroundColor: theme === 'dark' ? colors.bgPrimary : 'rgba(15, 23, 42, 0.06)',
+                        borderColor: theme === 'dark' ? colors.borderSubtle : 'rgba(15, 23, 42, 0.1)',
+                      },
+                    ]}
+                  >
                     <TouchableOpacity
                       style={[
                         styles.segmentBtn,

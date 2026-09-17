@@ -21,7 +21,7 @@ import { AnimatedScreenWrapper } from '../components/AnimatedScreenWrapper';
 import { useFocusEffect } from '@react-navigation/native';
 import { ToastNotification } from '../components/ToastNotification';
 import { AddTransactionModal } from '../components/AddTransactionModal';
-import { SellerDetailSkeleton } from '../components/Shimmer';
+import { SellerDetailSkeleton, TransactionCardSkeleton } from '../components/Shimmer';
 
 import { useSellerDetailQuery } from '../query/useQueries';
 import { invalidateTransactions } from '../query/queryClient';
@@ -125,7 +125,7 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
         navigation={navigation}
       />
 
-      {isLoading && !seller ? (
+      {(isLoading && (!querySeller || !queryStats)) ? (
         <SellerDetailSkeleton />
       ) : !seller ? (
         <View style={[styles.center, { flex: 1 }]}>
@@ -274,7 +274,12 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
           </View>
         </View>
 
-        {filteredTxs.length === 0 ? (
+        {isLoading && filteredTxs.length === 0 ? (
+          <View style={{ gap: 10 }}>
+            <TransactionCardSkeleton />
+            <TransactionCardSkeleton />
+          </View>
+        ) : filteredTxs.length === 0 ? (
           <View style={[styles.emptyBox, { backgroundColor: colors.bgCard }]}>
             <Text style={{ color: colors.textMuted }}>No transactions recorded for this filter.</Text>
           </View>
@@ -485,7 +490,16 @@ export const SellerDetailScreen = ({ route, navigation }: any) => {
 
                 {/* Note */}
                 {tx.note ? (
-                  <View style={[styles.txNoteBox, { backgroundColor: colors.bgSecondary }]}>
+                  <View
+                    style={[
+                      styles.txNoteBox,
+                      {
+                        backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(15, 23, 42, 0.04)',
+                        borderColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(15, 23, 42, 0.08)',
+                        borderWidth: 1,
+                      },
+                    ]}
+                  >
                     <Ionicons name="document-text-outline" size={12} color={colors.textMuted} style={{ marginRight: 5 }} />
                     <Text style={[styles.txNoteText, { color: colors.textMuted }]} numberOfLines={2}>
                       {tx.note}

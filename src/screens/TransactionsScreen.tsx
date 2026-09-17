@@ -35,7 +35,7 @@ interface TransactionsScreenProps {
 
 export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({ route, navigation, isEmbedded = false }) => {
   const sellerId = route?.params?.sellerId;
-  const { colors } = useTheme();
+  const { colors, theme } = useTheme();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [filterType, setFilterType] = useState<'ALL' | 'DELIVERY' | 'PAYMENT'>('ALL');
@@ -604,9 +604,21 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({ route, n
                 )}
 
                 {item.note ? (
-                  <Text style={[styles.noteText, { color: colors.textMuted }]} numberOfLines={1}>
-                    "{item.note}"
-                  </Text>
+                  <View
+                    style={[
+                      styles.txNoteBox,
+                      {
+                        backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(15, 23, 42, 0.04)',
+                        borderColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(15, 23, 42, 0.08)',
+                        borderWidth: 1,
+                      },
+                    ]}
+                  >
+                    <Ionicons name="document-text-outline" size={12} color={colors.textMuted} style={{ marginRight: 5 }} />
+                    <Text style={[styles.txNoteText, { color: colors.textMuted }]} numberOfLines={2}>
+                      {item.note}
+                    </Text>
+                  </View>
                 ) : null}
 
                 <View style={[styles.cardFooter, { borderTopColor: colors.borderSubtle }]}>
@@ -807,10 +819,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  noteText: {
+  txNoteBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 7,
+    borderRadius: 8,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  txNoteText: {
     fontSize: 11,
     fontStyle: 'italic',
-    marginBottom: 6,
+    flex: 1,
   },
   cardFooter: {
     borderTopWidth: 1,

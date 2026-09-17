@@ -1,7 +1,7 @@
 # VTMS Mobile App — Design System Contract (`app/DESIGN.md`)
 
 ## Stack
-- **Framework**: React Native (Expo SDK 50) + React 19 / React Native 0.86
+- **Framework**: React Native (Expo SDK 57) + React 19 / React Native 0.86.3
 - **Language**: TypeScript 6
 - **Styling**: StyleSheet with Semantic Design Tokens (`src/context/ThemeContext.tsx`, `src/constants/theme.ts`)
 - **Navigation**: React Navigation Native Stack (`@react-navigation/native`, `@react-navigation/native-stack`)

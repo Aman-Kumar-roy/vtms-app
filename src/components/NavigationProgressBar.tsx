@@ -6,6 +6,7 @@ import { useTheme } from '../context/ThemeContext';
 interface NavigationProgressBarProps {
   isNavigating?: boolean;
   direction?: 'left-to-right' | 'right-to-left';
+  position?: 'top' | 'bottom';
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -14,6 +15,7 @@ const BEAM_WIDTH = SCREEN_WIDTH * 0.45;
 export const NavigationProgressBar: React.FC<NavigationProgressBarProps> = ({
   isNavigating = false,
   direction = 'left-to-right',
+  position = 'top',
 }) => {
   const { colors } = useTheme();
   const isFetchingCount = useIsFetching();
@@ -78,11 +80,13 @@ export const NavigationProgressBar: React.FC<NavigationProgressBarProps> = ({
     };
   }, [isLoading, direction, animX, opacityAnim]);
 
+  const containerStyle = position === 'bottom' ? styles.bottomContainer : styles.topContainer;
+
   return (
     <Animated.View
       pointerEvents="none"
       style={[
-        styles.container,
+        containerStyle,
         {
           opacity: opacityAnim,
           backgroundColor: 'rgba(8, 13, 26, 0.4)',
@@ -103,11 +107,20 @@ export const NavigationProgressBar: React.FC<NavigationProgressBarProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
+  topContainer: {
     position: 'absolute',
     top: 0,
     left: -16,
     right: -16,
+    height: 2.5,
+    overflow: 'hidden',
+    zIndex: 999,
+  },
+  bottomContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     height: 2.5,
     overflow: 'hidden',
     zIndex: 999,

@@ -1,7 +1,7 @@
 # Vasudha Polymer VTMS Mobile App (Vendor & Transaction Management System)
 
 > **Location:** [`d:\vasudha-polymer\app`](file:///d:/vasudha-polymer/app)  
-> High-performance cross-platform mobile application powered by **React Native (Expo SDK 50)** + **TypeScript**, designed for iOS, Android, and web browser preview with built-in official server receipt voucher generation and clean Linear/Stripe-grade UI design.
+> High-performance cross-platform mobile application powered by **React Native (Expo SDK 57)** + **TypeScript**, designed for iOS, Android, and web browser preview with built-in official server receipt voucher generation and clean Linear/Stripe-grade UI design.
 
 ---
 

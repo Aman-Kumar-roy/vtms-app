@@ -255,8 +255,24 @@ export const DrawerSidebar: React.FC<DrawerSidebarProps> = ({
               <View style={[styles.divider, { backgroundColor: colors.borderSubtle }]} />
 
               {/* Current Admin Account Profile Name & Role Row */}
-              <View style={[styles.userSection, { backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }]}>
-                <View style={[styles.userAvatar, { backgroundColor: colors.bgSecondary, borderColor: colors.accent }]}>
+              <View
+                style={[
+                  styles.userSection,
+                  {
+                    backgroundColor: theme === 'dark' ? colors.bgCard : 'rgba(15, 23, 42, 0.04)',
+                    borderColor: theme === 'dark' ? colors.borderSubtle : 'rgba(15, 23, 42, 0.08)',
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.userAvatar,
+                    {
+                      backgroundColor: theme === 'dark' ? colors.bgSecondary : 'rgba(2, 132, 199, 0.1)',
+                      borderColor: colors.accent,
+                    },
+                  ]}
+                >
                   <Text style={[styles.userAvatarText, { color: colors.accent }]}>
                     {(user?.name || 'A')[0].toUpperCase()}
                   </Text>

@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Colors } from '../constants/theme';
 import { ProfileModal } from './ProfileModal';
+import { NavigationProgressBar } from './NavigationProgressBar';
 
 interface NavbarHeaderProps {
   currentScreenTitle?: string;
@@ -138,12 +139,17 @@ export const NavbarHeader: React.FC<NavbarHeaderProps> = ({
           <Text style={styles.avatarInitial}>{initials}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Opposite Direction (Right-to-Left) Laser Progress Line Below Nav Title */}
+      <NavigationProgressBar direction="right-to-left" position="bottom" />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   navbar: {
+    position: 'relative',
+    overflow: 'hidden',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
