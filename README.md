@@ -1,6 +1,4 @@
-# VTMS Mobile App (Vendor & Transaction Management System)
-
-> **Location:** [`d:\vasudha-polymer\app`](file:///d:/vasudha-polymer/app)  
+# VTMS Mobile App (Vendor & Transaction Management System) 
 > High-performance cross-platform mobile application powered by **React Native (Expo SDK 57)** + **TypeScript**, designed for iOS, Android, and web browser preview with built-in official server receipt voucher generation and clean Linear/Stripe-grade UI design.
 
 ---
@@ -19,8 +17,7 @@
 The mobile application consumes the **identical server-generated vector PDF** as the web dashboard:
 - The backend (`server/src/services/pdfReceiptService.ts`) generates official vector PDFs with strict `44x44pt` logo bounding, vector icons (`12-14pt`), strict `500L` and `1000L` tank breakdowns, back dues, and digital verification seals.
 - Endpoint: `GET /api/v1/transactions/:id/receipt/pdf` (streams vector `application/pdf`).
-- Downloaded locally using [`downloadReceiptPdfApi`](file:///d:/vasudha-polymer/app/src/api/transaction.ts) (`File.downloadFileAsync` via `expo-file-system`).
-- Displayed and triggered in [`ReceiptModal.tsx`](file:///d:/vasudha-polymer/app/src/components/ReceiptModal.tsx) via `expo-print` (`Print.printAsync({ uri })`) and `expo-sharing` (`Sharing.shareAsync(uri)`).
+
 - Zero client-side template duplication: Web Receipt = Mobile Receipt = Same Server PDF.
 
 ---
